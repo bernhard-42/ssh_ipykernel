@@ -1,0 +1,2 @@
+pexpect==4.7.0
+jupyterlab==1.0.10
