@@ -6,13 +6,14 @@ A remote jupyterkernel via ssh
 
 The ideas are heavily based on [remote_ikernel](https://bitbucket.org/tdaff/remote_ikernel), however `ssh_ipykernel`adds some important features
 
-* `jupyter_client`s `write_connection_file` is used on the remote server to get free ports
+* `jupyter_client`'s function `write_connection_file` is used on the remote server to get free ports
 * Local ports (obtained by jupyter also via `write_connection_file`) will be ssh forwarded to the remote ports
 * The ssh connection and the tunnel command will be retried in case of network or similar errors
+* introduced signal handling with python's `signal` module
 
 ## Usage
 
-* Usage of ssh kernel
+* Usage of ssh_ipykernel
 
   ```bash
   $ python -m ssh_ipykernel -h
