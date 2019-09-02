@@ -15,7 +15,7 @@ The ideas are heavily based on [remote_ikernel](https://bitbucket.org/tdaff/remo
 
 * Usage of ssh_ipykernel
 
-  ```bash
+  ```text
   $ python -m ssh_ipykernel -h
   usage: __main__.py [--help] [--timeout TIMEOUT] [--env [ENV [ENV ...]]] [-s]
                     --file FILE --host HOST --python PYTHON
