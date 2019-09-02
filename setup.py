@@ -25,8 +25,7 @@ setup(
     ],
     description="A remote jupyter ipykernel via ssh",
     install_requires=[
-        "pexpect==4.7.0",
-        "jupyterlab==1.0.10"
+        "pexpect==4.7.0"
     ],
     license="MIT license",
     long_description=readme + '\n\n' + history,
