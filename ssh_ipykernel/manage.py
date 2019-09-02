@@ -11,7 +11,7 @@ def add_kernel(host, display_name, local_python_path, remote_python_path, env=No
                timeout=5):
 
     def simplify(name):
-        return re.sub(r"[^a-zA-Z0-9\-\.]", "_", name)
+        return re.sub(r"[^a-zA-Z0-9\-\.\_]", "", name)
 
     if system:
         username = False
