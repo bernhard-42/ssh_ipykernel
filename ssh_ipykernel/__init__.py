@@ -4,6 +4,6 @@
 
 __author__ = """Bernhard Walter"""
 __email__ = 'b_walter@arcor.de'
-__version__ = '0.1.0'
+__version__ = '0.9.0'
 
 

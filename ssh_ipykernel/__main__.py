@@ -6,12 +6,8 @@ from .kernel import SshKernel
 
 def main(host, connection_info, python_path, sudo, timeout, env):
     kernel = SshKernel(host, connection_info, python_path, sudo, timeout, env)
-    kernel.start()
-    kernel.setup_tunnel()
-    try:
-        kernel.keep_alive()
-    except:
-        pass
+    kernel.create_remote_connection_info()
+    kernel.start_kernel_and_tunnels()
 
 
 if __name__ == "__main__":
