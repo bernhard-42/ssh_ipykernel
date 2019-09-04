@@ -12,6 +12,8 @@ import pexpect
 from pexpect import pxssh
 from tornado.log import LogFormatter
 
+from .status import Status
+
 
 class SshKernelException(Exception):
     pass
@@ -53,6 +55,8 @@ class SshKernel:
 
         signal.signal(signal.SIGQUIT, self._quit_handler)
         signal.signal(signal.SIGINT, self._int_handler)
+        
+        self.status = Status(connection_info)
 
     def _quit_handler(self, signum, frame):
         self._logger.warning("Received SIGQUIT")
@@ -113,6 +117,7 @@ class SshKernel:
             raise SshKernelException("Could not execute remote command, connection died")
 
     def connect(self, retries=3, delay=5, ssh_tunnels=None):
+        self.status.set_starting()
         if ssh_tunnels is None:
             ssh_tunnels = {}
             msg = "Connected to host '%s'" % self.host
@@ -122,11 +127,6 @@ class SshKernel:
         for dummy in range(retries):
             try:
                 connection = pxssh.pxssh(timeout=self.timeout)
-                connection.options = dict(
-                    StrictHostKeyChecking="no",
-                    ServerAliveCountMax=2,
-                    ServerAliveInterval=self.timeout
-                )
                 connection.login(self.host, username=None, ssh_config=self.ssh_config, ssh_tunnels=ssh_tunnels)
                 self._connection = connection
                 self._logger.info(msg)
@@ -179,13 +179,14 @@ class SshKernel:
         self.connect(ssh_tunnels=ssh_tunnels)
         self._connection.sendline(cmd)
         self._logger.info("Remote kernel started")
-
+        self.status.set_running()
         while True:
             try:
                 result = self._connection.prompt()
                 if result:
                     # ssh prompt detected, so the kernel died
                     self._logger.error(self._decode_utf8(self._connection.before))
+                    self.status.set_kernel_killed()
                     break
                 else:
                     # timeout reached
@@ -200,9 +201,12 @@ class SshKernel:
 
                 time.sleep(self.timeout)
             except pexpect.EOF:
+                self._logger.error("EOF")
                 lines = self._get_result(self._connection.before)
                 for line in lines:
-                    self._logger.info(line)
+                    self._logger.error(line)
+                self.status.set_down()
                 break
         self._logger.error("Kernel died")
         self.close()
+        self.status.close()
