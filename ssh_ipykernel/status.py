@@ -8,6 +8,17 @@ class Status:
     KERNEL_KILLED = 3
     STARTING = 4
     RUNNING = 5
+    CONNECT_FAILED = 6
+
+    MESSAGES = {
+        UNKNOWN: "Unknown",
+        DOWN: "Cluster down",
+        UNREACHABLE: "Cluster unreachable",
+        KERNEL_KILLED: "Kernel killed",
+        STARTING: "Starting",
+        RUNNING: "Running",
+        CONNECT_FAILED: "Connect failed"
+    }
 
     def __init__(self, connection_info, status_folder="~/.ssh_ipykernel"):
         self.status_folder = os.path.expanduser(status_folder)
@@ -63,6 +74,9 @@ class Status:
     def set_down(self):
         self._set_status(Status.DOWN)
 
+    def set_connect_failed(self):
+        self._set_status(Status.CONNECT_FAILED)
+        
     def _get_status(self):
         if self.status_available:
             return self.status[0]
@@ -87,9 +101,17 @@ class Status:
     def is_down(self):
         return self._get_status() == Status.DOWN
 
+    def is_connect_failed(self):
+        return self._get_status() == Status.CONNECT_FAILED
+        
     def close(self):
         try:
             if self.status_available:
                 os.remove(self.status_file)
-        except:
-            pass
+            else:
+                print("no need to delete status file")
+        except Exception as ex:
+            print(ex)
+
+    def get_status_message(self):
+        return Status.MESSAGES[self._get_status()]

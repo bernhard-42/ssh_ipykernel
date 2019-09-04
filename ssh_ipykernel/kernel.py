@@ -55,7 +55,7 @@ class SshKernel:
 
         signal.signal(signal.SIGQUIT, self._quit_handler)
         signal.signal(signal.SIGINT, self._int_handler)
-        
+
         self.status = Status(connection_info)
 
     def _quit_handler(self, signum, frame):
@@ -116,7 +116,7 @@ class SshKernel:
         else:
             raise SshKernelException("Could not execute remote command, connection died")
 
-    def connect(self, retries=3, delay=5, ssh_tunnels=None):
+    def connect(self, retries=2, delay=5, ssh_tunnels=None):
         self.status.set_starting()
         if ssh_tunnels is None:
             ssh_tunnels = {}
@@ -132,12 +132,15 @@ class SshKernel:
                 self._logger.info(msg)
                 break
             except Exception as e:
+                self._connection = None
+                self.status.set_connect_failed()
                 self._logger.error("Failed to open connection")
                 self._logger.error(e)
                 self._logger.error("Waiting for %ds" % delay)
                 time.sleep(5)
 
         if self._connection is None:
+            self.status.set_unreachable()
             raise SshKernelException("Connection failed")
 
     def close(self):
@@ -156,8 +159,10 @@ class SshKernel:
         result = self._execute(cmd)
         if result[0] == 0:
             self.remote_ports = json.loads(result[1][0])
+            self._logger.debug("Local ports  = %s" % {k: v for k, v in self.connection_info.items() if "_port" in k})
             self._logger.debug("Remote ports = %s" % self.remote_ports)
         else:
+            self.status.set_unreachable()
             raise SshKernelException("Could not create kernel_info file")
         self.close()
 
@@ -186,6 +191,7 @@ class SshKernel:
                 if result:
                     # ssh prompt detected, so the kernel died
                     self._logger.error(self._decode_utf8(self._connection.before))
+                    self._logger.error("Kernel killed")
                     self.status.set_kernel_killed()
                     break
                 else:
@@ -201,12 +207,12 @@ class SshKernel:
 
                 time.sleep(self.timeout)
             except pexpect.EOF:
-                self._logger.error("EOF")
                 lines = self._get_result(self._connection.before)
                 for line in lines:
                     self._logger.error(line)
+                self._logger.error("Cluster down")
                 self.status.set_down()
                 break
-        self._logger.error("Kernel died")
+        
         self.close()
         self.status.close()
