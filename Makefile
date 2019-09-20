@@ -5,11 +5,12 @@ OK_COLOR = \x1b[32;01m
 ERROR_COLOR = \x1b[31;01m
 
 PYCACHE := $(shell find . -name '__pycache__')
-EGGS := $(wildcard '*.egg-info')
+EGGS := $(wildcard *.egg-info)
 CURRENT_VERSION := $(shell awk '/current_version/ {print $$3}' .bumpversion.cfg)
 
 clean:
 	@echo "$(OK_COLOR)=> Cleaning$(NO_COLOR)"
+	echo egg $(EGGS)
 	@rm -fr build dist $(EGGS) $(PYCACHE)
 
 prepare: clean
