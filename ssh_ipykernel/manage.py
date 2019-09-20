@@ -1,7 +1,9 @@
+import argparse
 import getpass
 import json
 import os
 import re
+import sys
 import tempfile
 from jupyter_client import kernelspec as ks
 
@@ -43,3 +45,33 @@ def add_kernel(host, display_name, local_python_path, remote_python_path, env=No
         ks.install_kernel_spec(temp_dir, kernel_name, user=username, replace=True)
 
     return kernel_name
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(add_help=False)
+    optional = parser.add_argument_group('optional arguments')
+    optional.add_argument(
+        '--help', '-h', action='help', default=argparse.SUPPRESS, help='show this help message and exit')
+    optional.add_argument('--display-name', '-d', type=str, help="kernel display name (default is host name)")
+    optional.add_argument('--sudo', '-s', action='store_true', help='sudo required to start kernel on the remote machine')
+    optional.add_argument('--timeout', '-t', type=int, help="timeout for remote commands", default=5)
+    optional.add_argument(
+        '--env',
+        '-e',
+        nargs="*",
+        help='environment variables for the remote kernel in the form: VAR1=value1 VAR2=value2')
+
+    required = parser.add_argument_group('required arguments')
+    required.add_argument('--host', '-H', required=True, help="remote host")
+    required.add_argument('--python', '-p', required=True, help="remote python_path")
+    args = parser.parse_args()
+
+    add_kernel(
+        host=args.host,
+        display_name=args.host if args.display_name is None else args.display_name,
+        local_python_path=sys.executable,
+        remote_python_path=args.python,
+        sudo=args.sudo,
+        env=args.env,
+        timeout=args.timeout
+    )
