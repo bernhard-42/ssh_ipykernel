@@ -4,6 +4,4 @@
 
 __author__ = """Bernhard Walter"""
 __email__ = 'b_walter@arcor.de'
-__version__ = '0.9.0'
-
-
+from ._version import __version__, __version_info__
