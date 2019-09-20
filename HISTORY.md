@@ -14,3 +14,7 @@
 
 * Added code to call ssh_ipykernel as a module to add a kernel
 * Added doc strings to all classes and methods
+
+## 0.9.3 (2019-09-20)
+
+* Fixed argument error for env variables in ssh_ipykernel.manage

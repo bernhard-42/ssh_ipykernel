@@ -82,12 +82,15 @@ if __name__ == "__main__":
     required.add_argument('--python', '-p', required=True, help="remote python_path")
     args = parser.parse_args()
 
+    if args.env:
+        env = " ".join(args.env)
+
     add_kernel(
         host=args.host,
         display_name=args.host if args.display_name is None else args.display_name,
         local_python_path=sys.executable,
         remote_python_path=args.python,
         sudo=args.sudo,
-        env=args.env,
+        env=env,
         timeout=args.timeout
     )

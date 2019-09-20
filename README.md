@@ -38,26 +38,64 @@ The ideas are heavily based on [remote_ikernel](https://bitbucket.org/tdaff/remo
 
 * Creation of kernel specification
 
-  ```python
-  import ssh_ipykernel.manage
-  ssh_ipykernel.manage.add_kernel(
-      host="btest",
-      display_name="SSH btest:demo(abc)",
-      local_python_path="/opt/miniconda/envs/test36/bin/python",
-      remote_python_path="/opt/anaconda/envs/python36",
-      sudo=False,
-      env="VAR1=demo VAR2=abc",
-      timeout=10
-  )
-  ```
+  * from python
 
-* Check of kernel specification
+    ```python
+    import ssh_ipykernel.manage
+    ssh_ipykernel.manage.add_kernel(
+        host="btest",
+        display_name="SSH btest:demo(abc)",
+        local_python_path="/opt/miniconda/envs/test36/bin/python",
+        remote_python_path="/opt/anaconda/envs/python36",
+        sudo=False,
+        env="VAR1=demo VAR2=abc",
+        timeout=10
+    )
+    ```
+
+  * from terminal
+
+    ```bash
+    python -m ssh_ipykernel.manage --display-name "SSH btest:demo(abc) \
+                                   --host btest \
+                                   --python /opt/anaconda/envs/python36 \
+                                   --env "VAR1=demo VAR2=abc"
+    ```
+
+    ```bash
+    $ python -m ssh_ipykernel.manage --help
+
+    usage: manage.py [--help] [--display-name DISPLAY_NAME] [--sudo]
+                    [--timeout TIMEOUT] [--env [ENV [ENV ...]]] --host HOST
+                    --python PYTHON
+
+    optional arguments:
+      --help, -h            show this help message and exit
+      --display-name DISPLAY_NAME, -d DISPLAY_NAME
+                            kernel display name (default is host name)
+      --sudo, -s            sudo required to start kernel on the remote machine
+      --timeout TIMEOUT, -t TIMEOUT
+                            timeout for remote commands
+      --env [ENV [ENV ...]], -e [ENV [ENV ...]]
+                            environment variables for the remote kernel in the
+                            form: VAR1=value1 VAR2=value2
+
+    required arguments:
+      --host HOST, -H HOST  remote host
+      --python PYTHON, -p PYTHON
+                            remote python_path
+    ```
+
+
+* Checking of kernel specification
 
   ```bash
   $ jupyter-kernelspec list
   Available kernels:
     ssh__ssh_btest_demo_abc_         /Users/bernhard/Library/Jupyter/kernels/ssh__ssh_btest_demo_abc_
+  ```
 
+  ```bash
   $ cat /Users/bernhard/Library/Jupyter/kernels/ssh__ssh_btest_demo_abc_/kernel.json
   {
     "argv": [
