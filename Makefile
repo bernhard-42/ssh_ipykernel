@@ -1,4 +1,4 @@
-.PHONY: clean install dist check_dist upload dev_tools bump release
+.PHONY: clean prepare wheel install dist check_dist upload dev_tools bump release
 
 NO_COLOR = \x1b[0m
 OK_COLOR = \x1b[32;01m
@@ -11,6 +11,11 @@ CURRENT_VERSION := $(shell awk '/current_version/ {print $$3}' .bumpversion.cfg)
 clean:
 	@echo "$(OK_COLOR)=> Cleaning$(NO_COLOR)"
 	@rm -fr build dist $(EGGS) $(PYCACHE)
+
+prepare: clean
+	git add .
+	git status
+	git commit -m "cleanup before release"
 
 # Version commands
 
@@ -50,5 +55,4 @@ upload:
 # dev tools
 
 dev_tools:
-	pip install twine bumpversion yapf pylint
-
+	pip install twine bumpversion yapf pylint pyYaml
