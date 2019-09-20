@@ -25,7 +25,9 @@ setup(
     ],
     description="A remote jupyter ipykernel via ssh",
     install_requires=[
-        "pexpect==4.7.0"
+        "pexpect==4.7.0",
+        "tornado>=6.0.3",
+        "jupyter_client>=5.3.1,<5.4.0"
     ],
     license="MIT license",
     long_description=readme + '\n\n' + history,
@@ -33,7 +35,8 @@ setup(
     keywords='ssh_ipykernel',
     name='ssh_ipykernel',
     packages=find_packages(include=['ssh_ipykernel']),
+    python_requires='>=3.6',
     url='https://github.com/bernhard-42/ssh_ipykernel',
     version='0.9.1',
-    zip_safe=False,
+    zip_safe=False
 )
