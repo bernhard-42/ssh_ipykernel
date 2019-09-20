@@ -10,7 +10,6 @@ CURRENT_VERSION := $(shell awk '/current_version/ {print $$3}' .bumpversion.cfg)
 
 clean:
 	@echo "$(OK_COLOR)=> Cleaning$(NO_COLOR)"
-	echo egg $(EGGS)
 	@rm -fr build dist $(EGGS) $(PYCACHE)
 
 prepare: clean
