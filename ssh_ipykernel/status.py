@@ -22,13 +22,19 @@ class Status:
 
     def __init__(self, connection_info, status_folder="~/.ssh_ipykernel"):
         self.status_folder = os.path.expanduser(status_folder)
-        filename = "%d-%d-%d-%d-%d.status" % (connection_info["shell_port"], connection_info["iopub_port"],
-                                              connection_info["stdin_port"], connection_info["control_port"],
-                                              connection_info["hb_port"])
+        filename = "%s.status" % self.create_hash(connection_info)
         self.status_file = os.path.join(self.status_folder, filename)
         self.status_available = True
 
         self.status = self.create_or_get()
+
+    def create_hash(self, connection_info):
+        conn_str = "%d-%d-%d-%d-%d-%s.status" % (connection_info["shell_port"], connection_info["iopub_port"],
+                                                 connection_info["stdin_port"], connection_info["control_port"],
+                                                 connection_info["hb_port"], connection_info.get("key", ""))
+        h = hashlib.sha256()
+        h.update(conn_str.encode())
+        return h.hexdigest()
 
     def create_or_get(self):
         if not os.path.exists(self.status_folder):
