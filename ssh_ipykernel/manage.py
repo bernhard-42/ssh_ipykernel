@@ -11,7 +11,23 @@ PREFIX = "ssh_"
 
 def add_kernel(host, display_name, local_python_path, remote_python_path, env=None, sudo=False, system=False,
                timeout=5):
+    """Add a new kernel specification for an SSH Kernel
 
+    Arguments:
+        host {str} -- host where the remote ipykernel should be started
+        display_name {str} -- Display name for the new kernel
+        local_python_path {[type]} -- Local python path to be used (without bin/python)
+        remote_python_path {[type]} -- Remote python path to be used (without bin/python)
+
+    Keyword Arguments:
+        env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
+        sudo {bool} -- Start ipykernel as root if necessary (default: {False})
+        system {bool} -- Create kernelspec as user (False) or system (True) (default: {False})
+        timeout {int} -- SSH connection timeout (default: {5})
+
+    Returns:
+        [type] -- [description]
+    """
     def simplify(name):
         return re.sub(r"[^a-zA-Z0-9\-\.\_]", "", name)
 

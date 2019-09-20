@@ -35,6 +35,24 @@ print(ports)
 
 
 class SshKernel:
+    """Remote ipykernel via SSH
+
+    Raises:
+        SshKernelException: "Could not execute remote command, connection died"
+        SshKernelException: "Connection failed"
+        SshKernelException: "Could not create kernel_info file"
+
+        Arguments:
+            host {str} -- host where the remote ipykernel should be started
+            connection_info {dict} -- Local ipykernel connection info as provided by Juypter lab
+            python_path {str} -- Remote python path to be used to start ipykernel
+
+        Keyword Arguments:
+            sudo {bool} -- Start ipykernel as root if necessary (default: {False})
+            timeout {int} -- SSH connection timeout (default: {5})
+            env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
+            ssh_config {str} -- Path to the local SSH config file (default: {"~/.ssh/config"})
+    """
     def __init__(self, host, connection_info, python_path, sudo=False, timeout=5, env="", ssh_config="~/.ssh/config"):
         self.host = host
         self.connection_info = connection_info
@@ -59,6 +77,12 @@ class SshKernel:
         self.status = Status(connection_info)
 
     def _quit_handler(self, signum, frame):
+        """Handler vor SIGQUIT
+
+        Arguments:
+            signum {int} -- The signal number
+            frame {object} -- The current stack frame (None or a frame object
+        """
         self._logger.warning("Received SIGQUIT")
         if self._connection.isalive():
             self._logger.info("Sending quit to remote kernel")
@@ -68,12 +92,20 @@ class SshKernel:
             self._connection.logout()
 
     def _int_handler(self, signum, frame):
+        """Handler vor SIGINT
+
+        Arguments:
+            signum {int} -- The signal number
+            frame {object} -- The current stack frame (None or a frame object
+        """
         self._logger.warning("Received SIGINT")
         if self._connection.isalive():
             self._logger.info("Sending interrupt to remote kernel")
             self._connection.sendintr()  # send SIGINT
 
     def _setup_logging(self):
+        """Setup Logging
+        """
         _log_fmt = ("%(color)s[%(levelname)1.1s %(asctime)s.%(msecs).03d " "%(name)s]%(end_color)s %(message)s")
         _log_datefmt = "%H:%M:%S"
 
@@ -86,15 +118,41 @@ class SshKernel:
         self._logger.addHandler(console)
 
     def _decode_utf8(self, text):
+        """Decode unicode to utf-8
+        Return text if of instance str, else decode to utf-8 with error handling set to 'replace'
+
+        Arguments:
+            text {str|uniode} -- The text to decode
+
+        Returns:
+            str -- The utf-8 representation of the input text
+        """
         if isinstance(text, str):
             return text
         else:
             return text.decode("utf", "replace")
 
     def _get_result(self, result):
+        """Helper to retrieve utf-8 result from pxssh
+        Decodes the the result to utf-8 and removes first line (the original command)
+
+        Arguments:
+            result {str|unicode} -- A result from pexpect
+
+        Returns:
+            List[str] -- Result lines in utf-8
+        """
         return self._decode_utf8(result).split("\r\n")[1:]
 
     def _cmd(self, cmd):
+        """Send a command to a pxepect connection and retrieve result
+
+        Arguments:
+            cmd {str} -- Command to execute via pxssh connection
+
+        Returns:
+            List[str] -- Result lines in utf-8
+        """
         self._connection.sendline(cmd)
         while True:
             if self._connection.prompt():
@@ -105,6 +163,17 @@ class SshKernel:
                 time.sleep(0.5)
 
     def _execute(self, cmd):
+        """Execute a command via pxssh and retrieve shell return code
+
+        Arguments:
+            cmd {str} -- Command to execute via pxssh connection
+
+        Raises:
+            SshKernelException: "Could not execute remote command, connection died"
+
+        Returns:
+            (int, List[str]) -- Tuple of shell return code and result lines in utf-8
+        """
         if self._connection is not None and self._connection.isalive():
             result = self._cmd(cmd)
             returncode = self._cmd("echo $?")[0]
@@ -117,6 +186,17 @@ class SshKernel:
             raise SshKernelException("Could not execute remote command, connection died")
 
     def connect(self, retries=2, delay=5, ssh_tunnels=None):
+        """Connect to the remote ohst via pxssh and login
+
+        Keyword Arguments:
+            retries {int} -- Number of retries to connect and login (default: {2})
+            delay {int} -- Delay between retries in seconds (default: {5})
+            ssh_tunnels {List[str]} -- If given setup the all ssh tunnels provided as
+                                       "127.0.0.1:local_port:127.0.0.1:remote_port" (default: {None})
+
+        Raises:
+            SshKernelException: "Connection failed"
+        """
         self.status.set_starting()
         if ssh_tunnels is None:
             ssh_tunnels = {}
@@ -144,11 +224,21 @@ class SshKernel:
             raise SshKernelException("Connection failed")
 
     def close(self):
+        """Close pcssh connection
+        """
         if self._connection is not None and self._connection.isalive():
             self._logger.debug("Closing ssh connection")
             self._connection.logout()
 
     def create_remote_connection_info(self):
+        """Create a remote ipykernel connection info file
+        Uses KERNEL_SCRIPT to execute jupyter_client.write_connection_file remotely to request remote ports.
+        The remote ports will be returned as json and stored to built the SSH tunnels later.
+        The pxssh connection will be closed at the end.
+
+        Raises:
+            SshKernelException: "Could not create kernel_info file"
+        """
         self._logger.info("Creating remote connection info")
         # Create a remote kernel_info file
         script = KERNEL_SCRIPT.format(fname=self.fname, **self.connection_info)
@@ -167,6 +257,11 @@ class SshKernel:
         self.close()
 
     def start_kernel_and_tunnels(self):
+        """Start Kernels and SSH tunnels
+        A new pxssh connection will be created that will
+        - set up the necessary ssh tunnels between remote kernel ports and local kernel ports
+        - start the ipykernel on the remote host
+        """
         self._logger.info("Starting ipykernel on the remote server and setting up ssh tunnels")
         ssh_tunnels = {"local": []}
         for port_name in self.remote_ports.keys():
@@ -213,6 +308,6 @@ class SshKernel:
                 self._logger.error("Cluster down")
                 self.status.set_down()
                 break
-        
+
         self.close()
         self.status.close()

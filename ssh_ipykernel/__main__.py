@@ -5,6 +5,16 @@ from .kernel import SshKernel
 
 
 def main(host, connection_info, python_path, sudo, timeout, env):
+    """Main function to be called as module to create SshKernel
+
+    Arguments:
+        host {str} -- host where the remote ipykernel should be started
+        connection_info {dict} -- Local ipykernel connection info as provided by Juypter lab
+        python_path {str} -- Remote python path to be used to start ipykernel
+        sudo {bool} -- Start ipykernel as root if necessary (default: {False})
+        timeout {int} -- SSH connection timeout (default: {5})
+        env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
+    """
     kernel = SshKernel(host, connection_info, python_path, sudo, timeout, env)
     try:
         kernel.create_remote_connection_info()
