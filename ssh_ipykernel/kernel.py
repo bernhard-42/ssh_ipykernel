@@ -217,7 +217,7 @@ class SshKernel:
                 self._logger.error("Failed to open connection")
                 self._logger.error(e)
                 self._logger.error("Waiting for %ds" % delay)
-                time.sleep(5)
+                time.sleep(delay)
 
         if self._connection is None:
             self.status.set_unreachable()
