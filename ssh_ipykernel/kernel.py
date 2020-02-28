@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from pathlib import Path, PurePosixPath
 import platform
 import re
 import signal
@@ -12,14 +13,22 @@ from jupyter_client import BlockingKernelClient
 from tornado.log import LogFormatter
 
 if platform.system() == "Windows":
-    SSH = "ssh.exe"
-    ENCODING = {"codepage": 65001}
     os.environ["WEXPECT_SPAWN_CLASS"] = "SpawnPipe"
     import wexpect as expect  # pylint: disable=import-error
+
+    # from wexpect.wexpect_util import SIGNAL_CHARS  # pylint: disable=import-error
+
+    is_windows = True
+    SSH = "ssh.exe"
+    ENCODING = {"codepage": 65001}
+    # SIGINT = SIGNAL_CHARS[signal.SIGINT]
 else:
+    import pexpect as expect  # pylint: disable=import-error
+
+    is_windows = False
     SSH = "ssh"
     ENCODING = {"encoding": "utf-8"}
-    import pexpect as expect  # pylint: disable=import-error
+    # SIGINT = signal.SIGINT
 
 from .status import Status
 
@@ -60,7 +69,7 @@ class SshKernel:
             sudo {bool} -- Start ipykernel as root if necessary (default: {False})
             timeout {int} -- SSH connection timeout (default: {5})
             env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
-            ssh_config {List(str)} -- Path to the local SSH config file (default: {["~/" ".ssh", "config"]})
+            ssh_config {str} -- Path to the local SSH config file (default: {Path.home() / ".ssh" / "config"})
     """
 
     def __init__(
@@ -77,15 +86,14 @@ class SshKernel:
     ):
         self.host = host
         self.connection_info = connection_info
-        self.python_path = python_path
-        self.python_full_path = os.path.join(self.python_path, "bin/python")
+        self.python_full_path = PurePosixPath(python_path) / "bin/python"
         self.sudo = sudo
         self.timeout = timeout
         self.env = env
-        if ssh_config is None:
-            ssh_config = ["~/" ".ssh", "config"]
-        self.ssh_config = os.path.join(*ssh_config)
-        self.ssh_config = os.path.expanduser(self.ssh_config)
+        self.ssh_config = (
+            Path.home() / ".ssh" / "config" if ssh_config is None else ssh_config
+        )  # OS specific path
+
         self.quiet = quiet
         self.verbose = verbose
 
@@ -93,7 +101,7 @@ class SshKernel:
 
         self.remote_ports = {}
         self.uuid = str(uuid.uuid4())
-        self.fname = "/tmp/.ssh_ipykernel_%s.json" % self.uuid
+        self.fname = "/tmp/.ssh_ipykernel_%s.json" % self.uuid  # POSIX path
 
         self._setup_logging()
         self._logger.debug("Remote kernel info file {0}".format(self.fname))
@@ -150,7 +158,7 @@ class SshKernel:
         cmd = "{python} -c '{command}'".format(
             python=self.python_full_path, command="; ".join(script.strip().split("\n"))
         )
-
+        # self._logger.debug(cmd)
         result = self._ssh(cmd)
         self._logger.debug(result)
         if result[0] == 0:
@@ -163,6 +171,29 @@ class SshKernel:
         else:
             self.status.set_unreachable()
             raise SshKernelException("Could not create kernel_info file")
+
+    def kernel_client(self):
+        self.kc = BlockingKernelClient()
+        self.kc.load_connection_info(self.connection_info)
+        self.kc.start_channels()
+        self.check_alive()
+
+    def check_alive(self):
+        alive = "alive" if self._connection.isalive() else "NOT alive"
+        self._logger.debug("Connection is {alive}".format(alive=alive))
+
+        alive = "alive" if self.kc.is_alive() else "NOT alive"
+        self._logger.info("Remote kernel is {alive}".format(alive=alive))
+
+    def interrupt_kernel(self):
+        self._logger.warn("INTERRUPTING")
+        if is_windows:
+            self._logger.warn("on Windows")
+            self._connection.kill(signal.SIGINT)  # send SIGINT
+            self._connection.terminated = False
+        else:
+            self._logger.warn("on Posix system")
+            self._connection.sendintr()  # send SIGINT
 
     def start_kernel_and_tunnels(self):
         """Start Kernels and SSH tunnels
@@ -199,25 +230,21 @@ class SshKernel:
             args = ["-v"]
         else:
             args = []
-        args += ["-t", "-F", self.ssh_config] + ssh_tunnels + [self.host, cmd]
-        self._logger.debug(args)
+        args += ["-t", "-F", str(self.ssh_config)] + ssh_tunnels + [self.host, cmd]
+
+        self._logger.debug("%s %s" % (SSH, " ".join(args)))
+
+        try:
+            # Start the child process
+            self._connection = expect.spawn(SSH, args=args, **ENCODING)
+            self.kernel_client()
+            self.status.set_running()
+        except Exception as e:
+            self._logger.error(str(e.with_traceback()))
+            self._logger.error("Cannot contiune, exiting")
+            sys.exit(1)
 
         prompt = re.compile(r"\n")
-
-        # Start the child process
-        self._connection = expect.spawn(SSH, args=args, **ENCODING)
-
-        # Wait for prompt
-        self._connection.expect(prompt, timeout=5)
-
-        # print the texts
-        self._logger.info(self._connection.before.strip("\r\n"))
-        kc = BlockingKernelClient()
-        kc.load_connection_info(self.connection_info)
-        kc.start_channels()
-        alive = "alive" if kc.is_alive() else "NOT alive"
-        self._logger.info("Remote kernel is {alive}".format(alive=alive))
-        self.status.set_running()
 
         while True:
             try:
@@ -225,15 +252,17 @@ class SshKernel:
                 self._connection.expect(prompt)
                 # print the outputs
                 self._logger.info(self._connection.before.strip("\r\n"))
+
             except KeyboardInterrupt:
                 self._logger.warning("Received KeyboardInterrupt")
                 if self._connection.isalive():
-                    self._logger.info("Sending interrupt to remote kernel")
+                    self._logger.warning("Sending interrupt to remote kernel")
                     self._connection.sendintr()  # send SIGINT
-                continue
+                self.check_alive()
+
             except expect.TIMEOUT:
-                alive = "alive" if kc.is_alive() else "NOT alive"
-                self._logger.debug("Remote kernel is {alive}".format(alive=alive))
+                self.check_alive()
+
             except expect.EOF:
                 # The program has exited
                 self._logger.info("The program has exited.")
