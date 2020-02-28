@@ -59,7 +59,7 @@ class SshKernel:
             sudo {bool} -- Start ipykernel as root if necessary (default: {False})
             timeout {int} -- SSH connection timeout (default: {5})
             env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
-            ssh_config {str} -- Path to the local SSH config file (default: {"~/.ssh/config"})
+            ssh_config {List(str)} -- Path to the local SSH config file (default: {["~/" ".ssh", "config"]})
     """
 
     def __init__(
@@ -73,7 +73,7 @@ class SshKernel:
         self.timeout = timeout
         self.env = env
         if ssh_config is None:
-            ssh_config = ["~" ".ssh", "config"]
+            ssh_config = ["~/" ".ssh", "config"]
         self.ssh_config = os.path.join(*ssh_config)
         self.ssh_config = os.path.expanduser(self.ssh_config)
         self._connection = None
@@ -84,6 +84,7 @@ class SshKernel:
 
         self._setup_logging()
         self._logger.debug("Remote kernel info file {0}".format(self.fname))
+        self._logger.debug(connection_info)
 
         # signal.signal(signal.SIGQUIT, self._quit_handler)
         # signal.signal(signal.SIGINT, self._int_handler)
@@ -207,7 +208,7 @@ class SshKernel:
         )
         self._logger.debug(cmd)
 
-        args = ssh_tunnels + [self.host, cmd]
+        args = ["-q", "-F", self.ssh_config] + ssh_tunnels + [self.host, cmd]
         self._logger.debug(args)
         prompt = re.compile(r"\n")
 
@@ -231,7 +232,7 @@ class SshKernel:
                 self._logger.warning("Received KeyboardInterrupt")
                 if self._connection.isalive():
                     self._logger.info("Sending interrupt to remote kernel")
-                    # self._connection.sendintr()  # send SIGINT
+                    self._connection.sendintr()  # send SIGINT
                 continue
             except expect.TIMEOUT:
                 self._logger.debug("Timeout... ignored!")
