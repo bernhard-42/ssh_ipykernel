@@ -8,6 +8,7 @@ import subprocess
 import sys
 import uuid
 
+from jupyter_client import BlockingKernelClient
 from tornado.log import LogFormatter
 
 if platform.system() == "Windows":
@@ -63,7 +64,16 @@ class SshKernel:
     """
 
     def __init__(
-        self, host, connection_info, python_path, sudo=False, timeout=5, env="", ssh_config=None
+        self,
+        host,
+        connection_info,
+        python_path,
+        sudo=False,
+        timeout=5,
+        env="",
+        ssh_config=None,
+        quiet=True,
+        verbose=False,
     ):
         self.host = host
         self.connection_info = connection_info
@@ -76,6 +86,9 @@ class SshKernel:
             ssh_config = ["~/" ".ssh", "config"]
         self.ssh_config = os.path.join(*ssh_config)
         self.ssh_config = os.path.expanduser(self.ssh_config)
+        self.quiet = quiet
+        self.verbose = verbose
+
         self._connection = None
 
         self.remote_ports = {}
@@ -86,37 +99,7 @@ class SshKernel:
         self._logger.debug("Remote kernel info file {0}".format(self.fname))
         self._logger.debug(connection_info)
 
-        # signal.signal(signal.SIGQUIT, self._quit_handler)
-        # signal.signal(signal.SIGINT, self._int_handler)
-
         self.status = Status(connection_info, self._logger)
-
-    # def _quit_handler(self, signum, frame):
-    #     """Handler vor SIGQUIT
-
-    #     Arguments:
-    #         signum {int} -- The signal number
-    #         frame {object} -- The current stack frame (None or a frame object
-    #     """
-    #     self._logger.warning("Received SIGQUIT")
-    #     if self._connection.isalive():
-    #         self._logger.info("Sending quit to remote kernel")
-    #         self._connection.sendcontrol("\\")  # sends SIGQUIT
-    #         self._logger.debug("Remote kernel stopped")
-    #         self._logger.info("Stopping ssh connection")
-    #         self._connection.logout()
-
-    # def _int_handler(self, signum, frame):
-    #     """Handler vor SIGINT
-
-    #     Arguments:
-    #         signum {int} -- The signal number
-    #         frame {object} -- The current stack frame (None or a frame object
-    #     """
-    #     self._logger.warning("Received SIGINT")
-    #     if self._connection.isalive():
-    #         self._logger.info("Sending interrupt to remote kernel")
-    #         self._connection.sendintr()  # send SIGINT
 
     def _setup_logging(self):
         """Setup Logging
@@ -201,6 +184,7 @@ class SshKernel:
 
         self._logger.info("Starting remote kernel")
 
+        # Build remote command
         sudo = "sudo " if self.sudo else ""
         env = "" if self.env is None else " ".join(self.env) + " "
         cmd = "{sudo}{env} {python} -m ipykernel_launcher -f {fname}".format(
@@ -208,8 +192,16 @@ class SshKernel:
         )
         self._logger.debug(cmd)
 
-        args = ["-q", "-F", self.ssh_config] + ssh_tunnels + [self.host, cmd]
+        # Build ssh command with all flags and tunnels
+        if self.quiet:
+            args = ["-q"]
+        elif self.verbose:
+            args = ["-v"]
+        else:
+            args = []
+        args += ["-t", "-F", self.ssh_config] + ssh_tunnels + [self.host, cmd]
         self._logger.debug(args)
+
         prompt = re.compile(r"\n")
 
         # Start the child process
@@ -220,6 +212,11 @@ class SshKernel:
 
         # print the texts
         self._logger.info(self._connection.before.strip("\r\n"))
+        kc = BlockingKernelClient()
+        kc.load_connection_info(self.connection_info)
+        kc.start_channels()
+        alive = "alive" if kc.is_alive() else "NOT alive"
+        self._logger.info("Remote kernel is {alive}".format(alive=alive))
         self.status.set_running()
 
         while True:
@@ -235,7 +232,8 @@ class SshKernel:
                     self._connection.sendintr()  # send SIGINT
                 continue
             except expect.TIMEOUT:
-                self._logger.debug("Timeout... ignored!")
+                alive = "alive" if kc.is_alive() else "NOT alive"
+                self._logger.debug("Remote kernel is {alive}".format(alive=alive))
             except expect.EOF:
                 # The program has exited
                 self._logger.info("The program has exited.")
