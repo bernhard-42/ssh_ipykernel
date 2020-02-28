@@ -1,22 +1,26 @@
-import argparse
 import json
 import logging
 import os
+import platform
+import re
 import signal
 import subprocess
 import sys
-import time
 import uuid
 
-import pexpect
-from pexpect import pxssh
 from tornado.log import LogFormatter
 
+if platform.system() == "Windows":
+    SSH = "ssh.exe"
+    ENCODING = {"codepage": 65001}
+    os.environ["WEXPECT_SPAWN_CLASS"] = "SpawnPipe"
+    import wexpect as expect  # pylint: disable=import-error
+else:
+    SSH = "ssh"
+    ENCODING = {"encoding": "utf-8"}
+    import pexpect as expect  # pylint: disable=import-error
+
 from .status import Status
-
-
-class SshKernelException(Exception):
-    pass
 
 
 # No tabs, no multiline, quote { and } !
@@ -32,6 +36,10 @@ fd.close()
 ports = json.dumps({{k:v for k,v in ci.items() if "_port" in k}})
 print(ports)
 """
+
+
+class SshKernelException(Exception):
+    pass
 
 
 class SshKernel:
@@ -53,7 +61,10 @@ class SshKernel:
             env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
             ssh_config {str} -- Path to the local SSH config file (default: {"~/.ssh/config"})
     """
-    def __init__(self, host, connection_info, python_path, sudo=False, timeout=5, env="", ssh_config="~/.ssh/config"):
+
+    def __init__(
+        self, host, connection_info, python_path, sudo=False, timeout=5, env="", ssh_config=None
+    ):
         self.host = host
         self.connection_info = connection_info
         self.python_path = python_path
@@ -61,7 +72,10 @@ class SshKernel:
         self.sudo = sudo
         self.timeout = timeout
         self.env = env
-        self.ssh_config = os.path.expanduser(ssh_config)
+        if ssh_config is None:
+            ssh_config = ["~" ".ssh", "config"]
+        self.ssh_config = os.path.join(*ssh_config)
+        self.ssh_config = os.path.expanduser(self.ssh_config)
         self._connection = None
 
         self.remote_ports = {}
@@ -71,42 +85,45 @@ class SshKernel:
         self._setup_logging()
         self._logger.debug("Remote kernel info file {0}".format(self.fname))
 
-        signal.signal(signal.SIGQUIT, self._quit_handler)
-        signal.signal(signal.SIGINT, self._int_handler)
+        # signal.signal(signal.SIGQUIT, self._quit_handler)
+        # signal.signal(signal.SIGINT, self._int_handler)
 
-        self.status = Status(connection_info)
+        self.status = Status(connection_info, self._logger)
 
-    def _quit_handler(self, signum, frame):
-        """Handler vor SIGQUIT
+    # def _quit_handler(self, signum, frame):
+    #     """Handler vor SIGQUIT
 
-        Arguments:
-            signum {int} -- The signal number
-            frame {object} -- The current stack frame (None or a frame object
-        """
-        self._logger.warning("Received SIGQUIT")
-        if self._connection.isalive():
-            self._logger.info("Sending quit to remote kernel")
-            self._connection.sendcontrol("\\")  # sends SIGQUIT
-            self._logger.debug("Remote kernel stopped")
-            self._logger.info("Stopping ssh connection")
-            self._connection.logout()
+    #     Arguments:
+    #         signum {int} -- The signal number
+    #         frame {object} -- The current stack frame (None or a frame object
+    #     """
+    #     self._logger.warning("Received SIGQUIT")
+    #     if self._connection.isalive():
+    #         self._logger.info("Sending quit to remote kernel")
+    #         self._connection.sendcontrol("\\")  # sends SIGQUIT
+    #         self._logger.debug("Remote kernel stopped")
+    #         self._logger.info("Stopping ssh connection")
+    #         self._connection.logout()
 
-    def _int_handler(self, signum, frame):
-        """Handler vor SIGINT
+    # def _int_handler(self, signum, frame):
+    #     """Handler vor SIGINT
 
-        Arguments:
-            signum {int} -- The signal number
-            frame {object} -- The current stack frame (None or a frame object
-        """
-        self._logger.warning("Received SIGINT")
-        if self._connection.isalive():
-            self._logger.info("Sending interrupt to remote kernel")
-            self._connection.sendintr()  # send SIGINT
+    #     Arguments:
+    #         signum {int} -- The signal number
+    #         frame {object} -- The current stack frame (None or a frame object
+    #     """
+    #     self._logger.warning("Received SIGINT")
+    #     if self._connection.isalive():
+    #         self._logger.info("Sending interrupt to remote kernel")
+    #         self._connection.sendintr()  # send SIGINT
 
     def _setup_logging(self):
         """Setup Logging
         """
-        _log_fmt = ("%(color)s[%(levelname)1.1s %(asctime)s.%(msecs).03d " "%(name)s]%(end_color)s %(message)s")
+        _log_fmt = (
+            "%(color)s[%(levelname)1.1s %(asctime)s.%(msecs).03d "
+            "%(name)s]%(end_color)s %(message)s"
+        )
         _log_datefmt = "%H:%M:%S"
 
         self._logger = logging.getLogger("ssh_ipykernel")
@@ -117,111 +134,15 @@ class SshKernel:
         console.setFormatter(LogFormatter(fmt=_log_fmt, datefmt=_log_datefmt))
         self._logger.addHandler(console)
 
-    def _decode_utf8(self, text):
-        """Decode unicode to utf-8
-        Return text if of instance str, else decode to utf-8 with error handling set to 'replace'
-
-        Arguments:
-            text {str|uniode} -- The text to decode
-
-        Returns:
-            str -- The utf-8 representation of the input text
-        """
-        if isinstance(text, str):
-            return text
-        else:
-            return text.decode("utf", "replace")
-
-    def _get_result(self, result):
-        """Helper to retrieve utf-8 result from pxssh
-        Decodes the the result to utf-8 and removes first line (the original command)
-
-        Arguments:
-            result {str|unicode} -- A result from pexpect
-
-        Returns:
-            List[str] -- Result lines in utf-8
-        """
-        return self._decode_utf8(result).split("\r\n")[1:]
-
-    def _cmd(self, cmd):
-        """Send a command to a pxepect connection and retrieve result
-
-        Arguments:
-            cmd {str} -- Command to execute via pxssh connection
-
-        Returns:
-            List[str] -- Result lines in utf-8
-        """
-        self._connection.sendline(cmd)
-        while True:
-            if self._connection.prompt():
-                # prompt detected
-                return self._get_result(self._connection.before)
-            else:
-                # timeout reached
-                time.sleep(0.5)
-
     def _execute(self, cmd):
-        """Execute a command via pxssh and retrieve shell return code
+        try:
+            result = subprocess.check_output(cmd)
+            return 0, result
+        except subprocess.CalledProcessError as e:
+            return e.returncode, e.args
 
-        Arguments:
-            cmd {str} -- Command to execute via pxssh connection
-
-        Raises:
-            SshKernelException: "Could not execute remote command, connection died"
-
-        Returns:
-            (int, List[str]) -- Tuple of shell return code and result lines in utf-8
-        """
-        if self._connection is not None and self._connection.isalive():
-            result = self._cmd(cmd)
-            returncode = self._cmd("echo $?")[0]
-            try:
-                returncode = int(returncode)
-            except:
-                self._logger.error("wrong returncode %s", returncode)
-            return (returncode, result)
-        else:
-            raise SshKernelException("Could not execute remote command, connection died")
-
-    def connect(self, retries=2, delay=5, ssh_tunnels=None):
-        """Connect to the remote ohst via pxssh and login
-
-        Keyword Arguments:
-            retries {int} -- Number of retries to connect and login (default: {2})
-            delay {int} -- Delay between retries in seconds (default: {5})
-            ssh_tunnels {List[str]} -- If given setup the all ssh tunnels provided as
-                                       "127.0.0.1:local_port:127.0.0.1:remote_port" (default: {None})
-
-        Raises:
-            SshKernelException: "Connection failed"
-        """
-        self.status.set_starting()
-        if ssh_tunnels is None:
-            ssh_tunnels = {}
-            msg = "Connected to host '%s'" % self.host
-        else:
-            msg = "Connected to host '%s' and create %d tunnels" % (self.host, len(ssh_tunnels["local"]))
-
-        for dummy in range(retries):
-            try:
-                connection = pxssh.pxssh(timeout=self.timeout)
-                connection.login(self.host, username=None, ssh_config=self.ssh_config, ssh_tunnels=ssh_tunnels)
-                self._connection = connection
-                self._logger.info(msg)
-                break
-            except Exception as e:
-                self._connection = None
-                self.status.set_connect_failed()
-                self._logger.error("Failed to open connection")
-                self._logger.error(e)
-                self._logger.error("Waiting for %ds" % delay)
-                time.sleep(delay)
-
-        if self._connection is None:
-            self.status.set_unreachable()
-            raise SshKernelException("Connection failed")
+    def _ssh(self, cmd):
+        return self._execute([SSH, self.host, cmd])
 
     def close(self):
         """Close pcssh connection
@@ -240,21 +161,24 @@ class SshKernel:
             SshKernelException: "Could not create kernel_info file"
         """
         self._logger.info("Creating remote connection info")
-        # Create a remote kernel_info file
         script = KERNEL_SCRIPT.format(fname=self.fname, **self.connection_info)
 
-        cmd = "{python} -c '{command}'".format(python=self.python_full_path,
-                                               command="; ".join(script.strip().split("\n")))
-        self.connect()
-        result = self._execute(cmd)
+        cmd = "{python} -c '{command}'".format(
+            python=self.python_full_path, command="; ".join(script.strip().split("\n"))
+        )
+
+        result = self._ssh(cmd)
+        self._logger.debug(result)
         if result[0] == 0:
-            self.remote_ports = json.loads(result[1][0])
-            self._logger.debug("Local ports  = %s" % {k: v for k, v in self.connection_info.items() if "_port" in k})
+            self.remote_ports = json.loads(result[1].decode("utf-8"))
+            self._logger.debug(
+                "Local ports  = %s"
+                % {k: v for k, v in self.connection_info.items() if "_port" in k}
+            )
             self._logger.debug("Remote ports = %s" % self.remote_ports)
         else:
             self.status.set_unreachable()
             raise SshKernelException("Could not create kernel_info file")
-        self.close()
 
     def start_kernel_and_tunnels(self):
         """Start Kernels and SSH tunnels
@@ -262,50 +186,58 @@ class SshKernel:
         - set up the necessary ssh tunnels between remote kernel ports and local kernel ports
         - start the ipykernel on the remote host
         """
-        self._logger.info("Starting ipykernel on the remote server and setting up ssh tunnels")
-        ssh_tunnels = {"local": []}
+        self._logger.info("Setting up ssh tunnels")
+
+        ssh_tunnels = []
         for port_name in self.remote_ports.keys():
-            ssh_tunnels["local"].append("127.0.0.1:{local_port}:127.0.0.1:{remote_port}".format(
-                local_port=self.connection_info[port_name], remote_port=self.remote_ports[port_name]))
-        self._logger.info("Starting remote kernel ...")
+            ssh_tunnels += [
+                "-L",
+                "{local_port}:127.0.0.1:{remote_port}".format(
+                    local_port=self.connection_info[port_name],
+                    remote_port=self.remote_ports[port_name],
+                ),
+            ]
+
+        self._logger.info("Starting remote kernel")
+
         sudo = "sudo " if self.sudo else ""
         env = "" if self.env is None else " ".join(self.env) + " "
-        cmd = "{sudo}{env}{python} -m ipykernel_launcher -f {fname}".format(env=env,
-                                                                            sudo=sudo,
-                                                                            python=self.python_full_path,
-                                                                            fname=self.fname)
+        cmd = "{sudo}{env} {python} -m ipykernel_launcher -f {fname}".format(
+            sudo=sudo, env=env, python=self.python_full_path, fname=self.fname
+        )
         self._logger.debug(cmd)
 
-        self.connect(ssh_tunnels=ssh_tunnels)
-        self._connection.sendline(cmd)
-        self._logger.info("Remote kernel started")
+        args = ssh_tunnels + [self.host, cmd]
+        self._logger.debug(args)
+        prompt = re.compile(r"\n")
+
+        # Start the child process
+        self._connection = expect.spawn(SSH, args=args, **ENCODING)
+
+        # Wait for prompt
+        self._connection.expect(prompt, timeout=5)
+
+        # print the texts
+        self._logger.info(self._connection.before.strip("\r\n"))
         self.status.set_running()
+
         while True:
             try:
-                result = self._connection.prompt()
-                if result:
-                    # ssh prompt detected, so the kernel died
-                    self._logger.error(self._decode_utf8(self._connection.before))
-                    self._logger.error("Kernel killed")
-                    self.status.set_kernel_killed()
-                    break
-                else:
-                    # timeout reached
-                    if self._connection.before != b'':
-                        # print the buffer - it is just some kernel output
-                        lines = self._get_result(self._connection.before)
-                        for line in lines:
-                            self._logger.info(line)
-                        # and clear what we have printed
-                        self._connection.buffer = b''
-                        self._connection.before = b''
-
-                time.sleep(self.timeout)
-            except pexpect.EOF:
-                lines = self._get_result(self._connection.before)
-                for line in lines:
-                    self._logger.error(line)
-                self._logger.error("Cluster down")
+                # Wait for prompt
+                self._connection.expect(prompt)
+                # print the outputs
+                self._logger.info(self._connection.before.strip("\r\n"))
+            except KeyboardInterrupt:
+                self._logger.warning("Received KeyboardInterrupt")
+                if self._connection.isalive():
+                    self._logger.info("Sending interrupt to remote kernel")
+                    # self._connection.sendintr()  # send SIGINT
+                continue
+            except expect.TIMEOUT:
+                self._logger.debug("Timeout... ignored!")
+            except expect.EOF:
+                # The program has exited
+                self._logger.info("The program has exited.")
                 self.status.set_down()
                 break
 

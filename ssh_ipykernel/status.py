@@ -2,6 +2,7 @@ import os
 import mmap
 import hashlib
 
+
 class Status:
     """Store status of kernel start in mmap'd file for external tools
 
@@ -27,21 +28,26 @@ class Status:
         KERNEL_KILLED: "Kernel killed",
         STARTING: "Starting",
         RUNNING: "Running",
-        CONNECT_FAILED: "Connect failed"
+        CONNECT_FAILED: "Connect failed",
     }
 
-    def __init__(self, connection_info, status_folder="~/.ssh_ipykernel"):
+    def __init__(self, connection_info, logger, status_folder="~/.ssh_ipykernel"):
         self.status_folder = os.path.expanduser(status_folder)
         filename = "%s.status" % self.create_hash(connection_info)
         self.status_file = os.path.join(self.status_folder, filename)
         self.status_available = True
-
+        self._logger = logger
         self.status = self.create_or_get()
 
     def create_hash(self, connection_info):
-        conn_str = "%d-%d-%d-%d-%d-%s.status" % (connection_info["shell_port"], connection_info["iopub_port"],
-                                                 connection_info["stdin_port"], connection_info["control_port"],
-                                                 connection_info["hb_port"], connection_info.get("key", ""))
+        conn_str = "%d-%d-%d-%d-%d-%s.status" % (
+            connection_info["shell_port"],
+            connection_info["iopub_port"],
+            connection_info["stdin_port"],
+            connection_info["control_port"],
+            connection_info["hb_port"],
+            connection_info.get("key", ""),
+        )
         h = hashlib.sha256()
         h.update(conn_str.encode())
         return h.hexdigest()
@@ -84,6 +90,7 @@ class Status:
         if self.status_available:
             self.status[0] = status
             self.status.flush()
+            self._logger.debug("Status: %s" % Status.MESSAGES[status])
 
     def set_unreachable(self):
         """Set current status to Status.UNREACHABLE

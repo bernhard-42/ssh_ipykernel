@@ -86,7 +86,6 @@ The ideas are heavily based on [remote_ikernel](https://bitbucket.org/tdaff/remo
                             remote python_path
     ```
 
-
 * Checking of kernel specification
 
   ```bash
