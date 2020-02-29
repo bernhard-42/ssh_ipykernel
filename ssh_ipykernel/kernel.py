@@ -236,9 +236,7 @@ class SshKernel:
 
         try:
             # Start the child process
-            self._connection = expect.spawn(
-                SSH, args=args, timeout=self.timeout, **ENCODING
-            )
+            self._connection = expect.spawn(SSH, args=args, timeout=self.timeout, **ENCODING)
             # subprocess.check_output([SSH] + args)
             self.kernel_client()
             self.status.set_running()
