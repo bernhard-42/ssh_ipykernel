@@ -13,7 +13,7 @@ from jupyter_client import BlockingKernelClient
 from tornado.log import LogFormatter
 
 if platform.system() == "Windows":
-    os.environ["WEXPECT_SPAWN_CLASS"] = "SpawnPipe"
+    # os.environ["WEXPECT_SPAWN_CLASS"] = "SpawnPipe"
     import wexpect as expect  # pylint: disable=import-error
 
     # from wexpect.wexpect_util import SIGNAL_CHARS  # pylint: disable=import-error
@@ -186,14 +186,15 @@ class SshKernel:
         self._logger.info("Remote kernel is {alive}".format(alive=alive))
 
     def interrupt_kernel(self):
-        self._logger.warn("INTERRUPTING")
-        if is_windows:
-            self._logger.warn("on Windows")
-            self._connection.kill(signal.SIGINT)  # send SIGINT
-            self._connection.terminated = False
-        else:
-            self._logger.warn("on Posix system")
-            self._connection.sendintr()  # send SIGINT
+        if self._connection.isalive():
+            self._logger.warning("Sending interrupt to remote kernel")
+            if is_windows:
+                self._logger.warning("on Windows")
+                self._connection.kill(signal.SIGINT)  # send SIGINT
+                self._connection.terminated = False
+            else:
+                self._logger.warning("on Posix system")
+                self._connection.sendintr()  # send SIGINT
 
     def start_kernel_and_tunnels(self):
         """Start Kernels and SSH tunnels
@@ -221,7 +222,6 @@ class SshKernel:
         cmd = "{sudo}{env} {python} -m ipykernel_launcher -f {fname}".format(
             sudo=sudo, env=env, python=self.python_full_path, fname=self.fname
         )
-        self._logger.debug(cmd)
 
         # Build ssh command with all flags and tunnels
         if self.quiet:
@@ -236,7 +236,10 @@ class SshKernel:
 
         try:
             # Start the child process
-            self._connection = expect.spawn(SSH, args=args, **ENCODING)
+            self._connection = expect.spawn(
+                SSH, args=args, timeout=self.timeout, **ENCODING
+            )
+            # subprocess.check_output([SSH] + args)
             self.kernel_client()
             self.status.set_running()
         except Exception as e:
@@ -254,10 +257,7 @@ class SshKernel:
                 self._logger.info(self._connection.before.strip("\r\n"))
 
             except KeyboardInterrupt:
-                self._logger.warning("Received KeyboardInterrupt")
-                if self._connection.isalive():
-                    self._logger.warning("Sending interrupt to remote kernel")
-                    self._connection.sendintr()  # send SIGINT
+                self.interrupt_kernel()
                 self.check_alive()
 
             except expect.TIMEOUT:
