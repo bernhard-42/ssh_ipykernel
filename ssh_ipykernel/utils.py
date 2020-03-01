@@ -36,9 +36,8 @@ logger = setup_logging("ssh_ipykernel:utils")
 def execute(cmd):
     try:
         logger.debug("interrupt cmd = %s" % cmd)
-        # result = subprocess.check_output(cmd)
-        result = "OK"
-        result = {"code": 0, "data": result}
+        result = subprocess.check_output(cmd)
+        result = {"code": 0, "data": result.decode("utf-8")}
     except subprocess.CalledProcessError as e:
         result = {"code": e.returncode, "data": e.args}
 
