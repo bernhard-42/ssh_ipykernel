@@ -16,3 +16,10 @@ wheels/
 .ipynb_checkpoints
 *.ipynb
 .vscode
+.DS_Store
+*.bundle.*
+lib/
+node_modules/
+*.egg-info/
+.ipynb_checkpoints
+*.tsbuildinfo

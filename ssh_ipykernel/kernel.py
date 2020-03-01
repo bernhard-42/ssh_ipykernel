@@ -218,8 +218,10 @@ class SshKernel:
 
         # Build remote command
         sudo = "sudo " if self.sudo else ""
-        env = "" if self.env is None else " ".join(self.env) + " "
-        cmd = "{sudo}{env} {python} -m ipykernel_launcher -f {fname}".format(
+        env = "SSH_IPYKERNEL_HOST={}".format(self.host)
+        if self.env is not None:
+            env += " ".join(self.env)
+        cmd = "{sudo} {env} {python} -m ipykernel_launcher -f {fname}".format(
             sudo=sudo, env=env, python=self.python_full_path, fname=self.fname
         )
 
