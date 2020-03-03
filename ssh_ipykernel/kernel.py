@@ -187,13 +187,10 @@ class SshKernel:
 
     def interrupt_kernel(self):
         if self._connection.isalive():
-            self._logger.warning("Sending interrupt to remote kernel")
             if is_windows:
-                self._logger.warning("on Windows")
-                self._connection.kill(signal.SIGINT)  # send SIGINT
-                self._connection.terminated = False
+                self._logger.warning('On Windows use "Interrupt remot kernel" button')
             else:
-                self._logger.warning("on Posix system")
+                self._logger.warning("Sending interrupt to remote kernel")
                 self._connection.sendintr()  # send SIGINT
 
     def start_kernel_and_tunnels(self):
