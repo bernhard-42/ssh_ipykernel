@@ -10,20 +10,15 @@ import { Kernel } from '@jupyterlab/services';
 import { runningIcon } from '@jupyterlab/ui-components';
 
 class InterruptButtonExtension implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel> {
-  // private _notebookTracker: INotebookTracker;
   private _host: string = "";
   private _pid: number = -1;
   private _button: ToolbarButton;
 
-  // constructor(notebookTracker: INotebookTracker) {
-  //   this._notebookTracker = notebookTracker;
-  // }
 
   createNew(panel: NotebookPanel, context: DocumentRegistry.IContext<INotebookModel>): IDisposable {
 
     let interrupt = () => {
       console.info('InterruptButtonExtension: Interrupt clicked.');
-      // this._notebookTracker.currentWidget.context.sessionContext.session.kernel.interrupt()
       if (this._host != "" && this._pid != -1) {
         InterruptRequest.interrupt({ host: this._host, pid: this._pid })
       } else {
@@ -44,8 +39,7 @@ class InterruptButtonExtension implements DocumentRegistry.IWidgetExtension<Note
 
     // Add the toolbar button to the notebook
     panel.toolbar.insertItem(7, 'runAllCells', this._button);
-    // console.log(this._button, panel)
-    // return this._button;
+
     return new DisposableDelegate(() => {
       this._button.dispose();
     });
@@ -163,7 +157,6 @@ class RemoteSSH {
   }
 
   update(notebookPanel: NotebookPanel) {
-    // console.debug("RemoteSSH:update", notebookPanel, this)
     this.reset_hostpid(notebookPanel.id)
 
     const context = notebookPanel.sessionContext;
@@ -255,7 +248,6 @@ class RemoteSSH {
  */
 
 function activate(app: JupyterFrontEnd, notebookTracker: INotebookTracker): void {
-  // let buttonExtension = new InterruptButtonExtension(notebookTracker);
   let buttonExtension = new InterruptButtonExtension();
   app.docRegistry.addWidgetExtension('Notebook', buttonExtension);
   new RemoteSSH(buttonExtension, notebookTracker)
@@ -269,29 +261,3 @@ const extension: JupyterFrontEndPlugin<void> = {
 };
 
 export default extension;
-
-
-
-
-// Jupyterlab 1.x
-//   if (!notebookTracker.currentWidget) {
-//     return;
-//   }
-//   const notebookContext = notebookTracker.currentWidget.context;
-//   notebookContext.ready.then(
-//     () => { return notebookTracker.currentWidget.session.ready; },
-//     (error) => { console.log("notebookContext.ready", error) }
-//   ).then(
-//     () => { return notebookTracker.currentWidget.revealed; },
-//     (error) => { console.log("notebookTracker.currentWidget.session.ready", error) }
-//   ).then(
-//     () => { return notebookPanel.session.kernel.ready; },
-//     (error) => { console.log("notebookTracker.currentWidget.revealed", error) }
-//   ).then(
-//     () => {
-//       var kernel = notebookPanel.session.kernel
-//       console.debug("Current kernel =", kernel)
-//       window.ssh_ipykernel = kernel;
-//       buttonExtension.get_pid(kernel);
-//     },
-//     (error) => { console.log("notebookPanel.session.kernel.ready", error) })
