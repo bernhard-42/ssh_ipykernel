@@ -1,5 +1,5 @@
-import { IDisposable } from '@lumino/disposable';
-import { ToolbarButton } from '@jupyterlab/apputils';
+import { IDisposable, DisposableDelegate } from '@lumino/disposable';
+import { ToolbarButton, showErrorMessage } from '@jupyterlab/apputils';
 import { URLExt } from '@jupyterlab/coreutils';
 import { Session, ServerConnection } from '@jupyterlab/services';
 import { DocumentRegistry } from '@jupyterlab/docregistry';
@@ -10,28 +10,32 @@ import { Kernel } from '@jupyterlab/services';
 import { runningIcon } from '@jupyterlab/ui-components';
 
 class InterruptButtonExtension implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel> {
-  private _notebookTracker: INotebookTracker;
+  // private _notebookTracker: INotebookTracker;
   private _host: string = "";
   private _pid: number = -1;
+  private _button: ToolbarButton;
 
-  constructor(notebookTracker: INotebookTracker) {
-    this._notebookTracker = notebookTracker;
-  }
+  // constructor(notebookTracker: INotebookTracker) {
+  //   this._notebookTracker = notebookTracker;
+  // }
 
   createNew(panel: NotebookPanel, context: DocumentRegistry.IContext<INotebookModel>): IDisposable {
 
     let interrupt = () => {
       console.info('InterruptButtonExtension: Interrupt clicked.');
-      this._notebookTracker.currentWidget.context.sessionContext.session.kernel.interrupt()
+      // this._notebookTracker.currentWidget.context.sessionContext.session.kernel.interrupt()
       if (this._host != "" && this._pid != -1) {
         InterruptRequest.interrupt({ host: this._host, pid: this._pid })
       } else {
-        console.error("InterruptButtonExtension: Cannot interrupt remote kernel, host or pid unknown")
+        void showErrorMessage(
+          "Error interrupting remote kernel",
+          "This is not a remote ssh_ipykernel"
+        );
       }
     };
 
     // Create the toolbar button 
-    let button = new ToolbarButton({
+    this._button = new ToolbarButton({
       className: 'interrupt remote kernel',
       icon: runningIcon,
       onClick: interrupt,
@@ -39,10 +43,25 @@ class InterruptButtonExtension implements DocumentRegistry.IWidgetExtension<Note
     });
 
     // Add the toolbar button to the notebook
-    panel.toolbar.insertItem(7, 'runAllCells', button);
-
-    return button;
+    panel.toolbar.insertItem(7, 'runAllCells', this._button);
+    // console.log(this._button, panel)
+    // return this._button;
+    return new DisposableDelegate(() => {
+      this._button.dispose();
+    });
   }
+
+  // not working
+  // hide() {
+  //   console.debug("hide", this)
+  //   this._button.hide()
+  // }
+
+  // not working
+  // show() {
+  //   console.debug("show", this)
+  //   this._button.show()
+  // }
 
   set pid(pid: number) { this._pid = pid }
   set host(host: string) { this._host = host }
@@ -111,20 +130,20 @@ class RemoteSSH {
 
       if (!this.connect_register[notebookPanel.id]) {
 
-        console.debug("Connect to notebookPanel.sessionContext.statusChanged event")
+        console.debug("Connect to notebookPanel.sessionContext.statusChanged event for", notebookPanel.id)
         notebookPanel.sessionContext.statusChanged.connect((slot: any, status: Kernel.Status) => {
           if (status == "restarting") {
-            console.debug("Connect to notebookPanel.sessionContext.statusChanged", status)
-            this.hostpids[notebookPanel.id] = null;
+            console.debug("RemoteSSH:notebookPanel.sessionContext.statusChanged:", slot, status)
+            this.reset_cache(notebookPanel.id)
             this.update(notebookPanel)
           }
         })
 
-        console.debug("Connect to notebookPanel.sessionContext.kernelChanged event")
+        console.debug("Connect to notebookPanel.sessionContext.kernelChanged event", notebookPanel.id)
         notebookPanel.sessionContext.kernelChanged.connect((slot: any, change: Session.ISessionConnection.IKernelChangedArgs) => {
-          console.debug("Connect to notebookPanel.sessionContext.kernelChanged", change)
           if (change.newValue) {
-            this.hostpids[notebookPanel.id] = null;
+            console.debug("RemoteSSH:notebookPanel.sessionContext.kernelChanged:", change)
+            this.reset_cache(notebookPanel.id)
             this.update(notebookPanel)
           }
         })
@@ -134,8 +153,19 @@ class RemoteSSH {
     })
   }
 
+  reset_cache(id: string) {
+    this.hostpids[id] = null
+  }
+
+  reset_hostpid(id: string) {
+    this.extension.host = ""
+    this.extension.pid = -1
+  }
+
   update(notebookPanel: NotebookPanel) {
-    console.debug("RemoteSSH:update")
+    // console.debug("RemoteSSH:update", notebookPanel, this)
+    this.reset_hostpid(notebookPanel.id)
+
     const context = notebookPanel.sessionContext;
     context.ready.then(
       () => {
@@ -152,20 +182,21 @@ class RemoteSSH {
 
   set_host_and_pid(kernel: Kernel.IKernelConnection, id: string) {
     console.debug("RemoteSSH:set_host_and_pid, cache:", this.hostpids[id])
-    var host = ""
-    var pid = -1
 
     if (this.hostpids[id]) {
 
       this.extension.host = this.hostpids[id].host
       this.extension.pid = this.hostpids[id].pid
+      // this.extension.show()
       console.debug("RemoteSSH: Use cached host =", this.hostpids[id].host, ", pid =", this.hostpids[id].pid)
 
     } else {
+      var host = ""
+      var pid = -1
 
       class ReplyData { "text/plain": string; }
       class ReplyContent { data: ReplyData }
-      console.debug("requestExecute")
+
       kernel.requestExecute({
         code: "import os",
         user_expressions: { pid: "os.getpid()", host: "os.environ['SSH_IPYKERNEL_HOST']" },
@@ -173,7 +204,7 @@ class RemoteSSH {
         silent: true
       }).done.then(
         (reply: any) => {
-          console.debug("requestExecute -> reply", reply)
+          // console.debug("requestExecute -> reply", reply)
           if (reply.content.status == "ok") {
             var ue = reply.content.user_expressions
 
@@ -182,7 +213,8 @@ class RemoteSSH {
               Object.assign(pid_obj, ue["pid"]);
               pid = Number(pid_obj.data["text/plain"]);
             } catch (error) {
-              console.error("Could not retrieve remote kernel's pid", error);
+              pid = -1
+              console.error("Could not retrieve remote kernel's pid");
             }
 
             try {
@@ -190,21 +222,28 @@ class RemoteSSH {
               Object.assign(host_obj, ue["host"]);
               host = host_obj.data["text/plain"].slice(1, -1);
             } catch (error) {
-              console.error("Could not retrieve remote kernel's host", error);
+              host = ""
+              console.debug("Could not retrieve remote kernel's host");
             }
 
           } else {
-
             console.error("Could not retrieve remote kernel's pid and host");
-
           }
-          this.hostpids[id] = new HostPid(host, pid)
-          this.extension.pid = pid
-          this.extension.host = host
-          console.debug("RemoteSSH: Retrieved host =", host, ", pid =", pid)
+          if (pid != -1 && host != "") {
+            console.debug("RemoteSSH: Retrieved host =", host, ", pid =", pid)
+            this.hostpids[id] = new HostPid(host, pid)
+            this.extension.pid = pid
+            this.extension.host = host
+            // this.extension.show()
+          } else {
+            console.debug("No remote ssh kernel")
+
+            // this.extension.hide()
+          }
         },
         (error: any) => {
           console.error(error);
+          // this.extension.hide()
         }
       )
     }
@@ -216,7 +255,8 @@ class RemoteSSH {
  */
 
 function activate(app: JupyterFrontEnd, notebookTracker: INotebookTracker): void {
-  let buttonExtension = new InterruptButtonExtension(notebookTracker);
+  // let buttonExtension = new InterruptButtonExtension(notebookTracker);
+  let buttonExtension = new InterruptButtonExtension();
   app.docRegistry.addWidgetExtension('Notebook', buttonExtension);
   new RemoteSSH(buttonExtension, notebookTracker)
 }
