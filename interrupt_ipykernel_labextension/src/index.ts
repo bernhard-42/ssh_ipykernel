@@ -1,5 +1,5 @@
 import { IDisposable, DisposableDelegate } from '@lumino/disposable';
-import { ToolbarButton, showErrorMessage } from '@jupyterlab/apputils';
+import { ToolbarButton, showErrorMessage, ISessionContext } from '@jupyterlab/apputils';
 import { URLExt } from '@jupyterlab/coreutils';
 import { Session, ServerConnection } from '@jupyterlab/services';
 import { DocumentRegistry } from '@jupyterlab/docregistry';
@@ -8,6 +8,7 @@ import { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application'
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { Kernel } from '@jupyterlab/services';
 import { runningIcon } from '@jupyterlab/ui-components';
+import { ILabShell } from '@jupyterlab/application';
 
 class InterruptButtonExtension implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel> {
   private _host: string = "";
@@ -104,48 +105,93 @@ interface HostPids {
   [details: string]: HostPid;
 }
 
-interface ConnectRegister {
-  [details: string]: boolean
-}
 
 class RemoteSSH {
 
   private extension: InterruptButtonExtension;
   private hostpids: HostPids = {};
-  private connect_register: ConnectRegister = {};
 
-  constructor(extension: InterruptButtonExtension, notebookTracker: INotebookTracker) {
+  constructor(extension: InterruptButtonExtension, notebookTracker: INotebookTracker, labShell: ILabShell) {
     this.extension = extension;
 
-    console.debug("Connect to notebookTracker.currentChanged event")
-    notebookTracker.currentChanged.connect((slot: any, notebookPanel: NotebookPanel) => {
-      console.debug("RemoteSSH:notebookTracker.currentChanged", notebookPanel.id)
-      this.update(notebookPanel);
+    labShell.restored.then((layout) => notebookTracker.currentWidget.sessionContext.ready).then(
+      () => {
+        var context = notebookTracker.currentWidget.sessionContext;
+        console.debug("RemoteSSH: labShell.restored, context.session.id =", context.session.id)
 
-      if (!this.connect_register[notebookPanel.id]) {
+        context.ready.then(
+          () => {
+            this.update(context);
 
-        console.debug("Connect to notebookPanel.sessionContext.statusChanged event for", notebookPanel.id)
-        notebookPanel.sessionContext.statusChanged.connect((slot: any, status: Kernel.Status) => {
-          if (status == "restarting") {
-            console.debug("RemoteSSH:notebookPanel.sessionContext.statusChanged:", slot, status)
-            this.reset_cache(notebookPanel.id)
-            this.update(notebookPanel)
+            console.debug(
+              "RemoteSSH: Connect to notebookTracker.currentChanged event for", context.session.id
+            )
+            notebookTracker.currentChanged.connect(
+              (notebookTracker: INotebookTracker, notebookPanel: NotebookPanel) => {
+                console.debug("RemoteSSH: notebookTracker.currentChanged", notebookTracker.currentWidget.id)
+                this.update(context);
+              }
+            )
+
+            console.debug(
+              "RemoteSSH: Connect to notebookPanel.sessionContext.statusChanged event for", context.session.id
+            )
+            context.statusChanged.connect(
+              (context: ISessionContext, status: Kernel.Status) => {
+                if (status == "restarting") {
+                  console.debug("RemoteSSH: context.statusChanged:", status)
+                  this.reset_cache(context.session.id)
+                  this.update(context)
+                }
+              }
+            )
+
+            console.debug(
+              "RemoteSSH: Connect to notebookPanel.sessionContext.kernelChanged event", context.session.id
+            )
+            context.kernelChanged.connect(
+              (context: ISessionContext, change: Session.ISessionConnection.IKernelChangedArgs) => {
+                if (change.newValue) {
+                  console.debug("RemoteSSH:context.kernelChanged:", change)
+                  this.reset_cache(context.session.id)
+                  this.update(context)
+                }
+              }
+            )
           }
-        })
-
-        console.debug("Connect to notebookPanel.sessionContext.kernelChanged event", notebookPanel.id)
-        notebookPanel.sessionContext.kernelChanged.connect((slot: any, change: Session.ISessionConnection.IKernelChangedArgs) => {
-          if (change.newValue) {
-            console.debug("RemoteSSH:notebookPanel.sessionContext.kernelChanged:", change)
-            this.reset_cache(notebookPanel.id)
-            this.update(notebookPanel)
-          }
-        })
-
-        this.connect_register[notebookPanel.id] = true
+        )
       }
-    })
+    )
   }
+  //   console.debug("Connect to notebookTracker.currentChanged event")
+  //   notebookTracker.currentChanged.connect((slot: any, notebookPanel: NotebookPanel) => {
+  //     console.debug("RemoteSSH:notebookTracker.currentChanged", notebookPanel.id)
+  //     this.update(notebookPanel);
+
+  //     if (!this.connect_register[notebookPanel.id]) {
+
+  //       console.debug("Connect to notebookPanel.sessionContext.statusChanged event for", notebookPanel.id)
+  //       notebookPanel.sessionContext.statusChanged.connect((slot: any, status: Kernel.Status) => {
+  //         if (status == "restarting") {
+  //           console.debug("RemoteSSH:notebookPanel.sessionContext.statusChanged:", slot, status)
+  //           this.reset_cache(notebookPanel.id)
+  //           this.update(notebookPanel)
+  //         }
+  //       })
+
+  //       console.debug("Connect to notebookPanel.sessionContext.kernelChanged event", notebookPanel.id)
+  //       notebookPanel.sessionContext.kernelChanged.connect((slot: any, change: Session.ISessionConnection.IKernelChangedArgs) => {
+  //         if (change.newValue) {
+  //           console.debug("RemoteSSH:notebookPanel.sessionContext.kernelChanged:", change)
+  //           this.reset_cache(notebookPanel.id)
+  //           this.update(notebookPanel)
+  //         }
+  //       })
+
+  //       this.connect_register[notebookPanel.id] = true
+  //     }
+  //   })
+  // }
 
   reset_cache(id: string) {
     this.hostpids[id] = null
@@ -156,17 +202,16 @@ class RemoteSSH {
     this.extension.pid = -1
   }
 
-  update(notebookPanel: NotebookPanel) {
-    this.reset_hostpid(notebookPanel.id)
+  update(context: ISessionContext) {
+    this.reset_hostpid(context.session.id)
 
-    const context = notebookPanel.sessionContext;
     context.ready.then(
       () => {
-        console.debug("RemoteSSH:context.ready")
+        console.debug("RemoteSSH:context.ready", context, this)
         const kernel = context.session?.kernel
         if (kernel) {
           setTimeout(() => {
-            this.set_host_and_pid(kernel, notebookPanel.id)
+            this.set_host_and_pid(kernel, context.session.id)
           }, 500);
         }
       }
@@ -247,15 +292,15 @@ class RemoteSSH {
  * Initialization data for the interrupt-ipykernel-extension extension.
  */
 
-function activate(app: JupyterFrontEnd, notebookTracker: INotebookTracker): void {
+function activate(app: JupyterFrontEnd, notebookTracker: INotebookTracker, labShell: ILabShell): void {
   let buttonExtension = new InterruptButtonExtension();
   app.docRegistry.addWidgetExtension('Notebook', buttonExtension);
-  new RemoteSSH(buttonExtension, notebookTracker)
+  new RemoteSSH(buttonExtension, notebookTracker, labShell)
 }
 
 const extension: JupyterFrontEndPlugin<void> = {
   id: 'interrupt-ipykernel-extension',
-  requires: [INotebookTracker],
+  requires: [INotebookTracker, ILabShell],
   autoStart: true,
   activate
 };

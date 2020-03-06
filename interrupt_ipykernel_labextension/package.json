@@ -31,6 +31,7 @@
     "watch": "tsc -w"
   },
   "dependencies": {
+    "@jupyter-widgets/jupyterlab-manager": "^2.0.0",
     "@jupyterlab/application": "^2.0.0",
     "@jupyterlab/apputils": "^2.0.0",
     "@jupyterlab/docregistry": "^2.0.0",
