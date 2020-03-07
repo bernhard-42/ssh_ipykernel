@@ -21,7 +21,7 @@ class InterruptButtonExtension implements DocumentRegistry.IWidgetExtension<Note
     let interrupt = () => {
       console.info('InterruptButtonExtension: Interrupt clicked.');
       if (this._host != "" && this._pid != -1) {
-        InterruptRequest.interrupt({ host: this._host, pid: this._pid })
+        InterruptRequest.interrupt({ host: this._host, pid: this._pid, id: panel.sessionContext.session.kernel.id })
       } else {
         void showErrorMessage(
           "Error interrupting remote kernel",
@@ -69,16 +69,16 @@ namespace InterruptRequest {
     status: string;
   }
 
-  async function request(command: string, host: string, pid: number) {
-    console.info("InterruptRequest: Requesting interrupt for host", host, " and pid", pid)
+  async function request(command: string, host: string, pid: number, id: string) {
+    console.info("InterruptRequest: Requesting interrupt for host", host, " and pid", pid, " and id", id)
     var url = URLExt.join(SERVER_CONNECTION_SETTINGS.baseUrl, command);
-    url = url + "?pid=" + pid + "&host=" + host;
+    url = url + "?pid=" + pid + "&host=" + host + "&id=" + id;
 
     return ServerConnection.makeRequest(url, {}, SERVER_CONNECTION_SETTINGS);
   }
 
-  export async function interrupt({ host, pid }: { host: string; pid: number; }) {
-    const response = await request("interrupt", host, pid);
+  export async function interrupt({ host, pid, id }: { host: string; pid: number; id: string }) {
+    const response = await request("interrupt", host, pid, id);
     if (response.ok) {
       var result = await response.json();
       if (result["code"] == 0) {
@@ -121,6 +121,7 @@ class RemoteSSH {
 
         context.ready.then(
           () => {
+            console.debug("RemoteSSH: context.ready")
             this.update(context);
 
             console.debug(
@@ -129,12 +130,12 @@ class RemoteSSH {
             notebookTracker.currentChanged.connect(
               (notebookTracker: INotebookTracker, notebookPanel: NotebookPanel) => {
                 console.debug("RemoteSSH: notebookTracker.currentChanged", notebookTracker.currentWidget.id)
-                this.update(context);
+                this.update(notebookTracker.currentWidget.sessionContext);
               }
             )
 
             console.debug(
-              "RemoteSSH: Connect to notebookPanel.sessionContext.statusChanged event for", context.session.id
+              "RemoteSSH: Connect to context.statusChanged event for", context.session.id
             )
             context.statusChanged.connect(
               (context: ISessionContext, status: Kernel.Status) => {
@@ -147,7 +148,7 @@ class RemoteSSH {
             )
 
             console.debug(
-              "RemoteSSH: Connect to notebookPanel.sessionContext.kernelChanged event", context.session.id
+              "RemoteSSH: Connect to context.kernelChanged event", context.session.id
             )
             context.kernelChanged.connect(
               (context: ISessionContext, change: Session.ISessionConnection.IKernelChangedArgs) => {

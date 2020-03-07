@@ -69,58 +69,41 @@ class Status:
         if self.status_available and not os.path.exists(self.status_file):
             try:
                 with open(self.status_file, "wb") as fd:
-                    fd.write(bytes([Status.UNKNOWN]))
+                    fd.write((0).to_bytes(10, "big"))
+                self._logger.debug("status file: %s" % self.status_file)
             except Exception as ex:
                 print("Cannot initialize %s" % self.status_folder)
                 print(ex)
                 self.status_available = False
 
         if self.status_available:
+            print("Attaching to mmap file", self.status_file)
             fd = open(self.status_file, "r+b")
             return mmap.mmap(fd.fileno(), 0)
         else:
             return None
 
-    def _set_status(self, status):
+    def _to_bytes(self, value, length):
+        return value.to_bytes(length, "big", signed=False)
+
+    def _from_bytes(self, value):
+        return int.from_bytes(value, "big", signed=False)
+
+    def _set_status(self, status, pid):
         """Set status if status file exists
 
         Arguments:
             status {int} -- Status.<value>
         """
+        print("_set_status")
         if self.status_available:
-            self.status[0] = status
+            print("_set_status", (type(status), status, type(pid), pid))
+            new_status = self._to_bytes(status, 2) + self._to_bytes(pid, 8)
+            print("new status", new_status)
+            self.status[:10] = new_status
+            self._logger.debug("status set")
             self.status.flush()
             self._logger.debug("Status: %s" % Status.MESSAGES[status])
-
-    def set_unreachable(self):
-        """Set current status to Status.UNREACHABLE
-        """
-        self._set_status(Status.UNREACHABLE)
-
-    def set_kernel_killed(self):
-        """Set current status to Status.KERNEL_KILLED
-        """
-        self._set_status(Status.KERNEL_KILLED)
-
-    def set_starting(self):
-        """Set current status to Status.STARTING
-        """
-        self._set_status(Status.STARTING)
-
-    def set_running(self):
-        """Set current status to Status.RUNNING
-        """
-        self._set_status(Status.RUNNING)
-
-    def set_down(self):
-        """Set current status to Status.DOWN
-        """
-        self._set_status(Status.DOWN)
-
-    def set_connect_failed(self):
-        """Set current status to Status.CONNECT_FAILED
-        """
-        self._set_status(Status.CONNECT_FAILED)
 
     def _get_status(self):
         """Get status if status file exists
@@ -129,9 +112,51 @@ class Status:
             int -- Status.<value>
         """
         if self.status_available:
-            return self.status[0]
+            return self._from_bytes(self.status[:2])
         else:
             return Status.UNKNOWN
+
+    def get_pid(self):
+        """Get status if status file exists
+
+        Returns:
+            int -- Status.<value>
+        """
+        if self.status_available:
+            return self._from_bytes(self.status[2:10])
+        else:
+            return -1
+
+    def set_unreachable(self, pid):
+        """Set current status to Status.UNREACHABLE
+        """
+        self._set_status(Status.UNREACHABLE, pid)
+
+    def set_kernel_killed(self, pid):
+        """Set current status to Status.KERNEL_KILLED
+        """
+        self._set_status(Status.KERNEL_KILLED, pid)
+
+    def set_starting(self, pid):
+        """Set current status to Status.STARTING
+        """
+        self._set_status(Status.STARTING, pid)
+
+    def set_running(self, pid):
+        """Set current status to Status.RUNNING
+        """
+        print("set_running", pid)
+        self._set_status(Status.RUNNING, pid)
+
+    def set_down(self, pid):
+        """Set current status to Status.DOWN
+        """
+        self._set_status(Status.DOWN, pid)
+
+    def set_connect_failed(self, pid):
+        """Set current status to Status.CONNECT_FAILED
+        """
+        self._set_status(Status.CONNECT_FAILED, pid)
 
     def is_unknown(self):
         """Check for Status.UNKNOWN

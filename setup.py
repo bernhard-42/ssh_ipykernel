@@ -24,7 +24,12 @@ setup(
         "Programming Language :: Python :: 3.7",
     ],
     description="A remote jupyter ipykernel via ssh",
-    install_requires=["pexpect==4.7.0", "tornado>=6.0.3", "jupyter_client>=5.3.1,<5.4.0",],
+    install_requires=[
+        "pexpect==4.7.0",
+        "tornado>=6.0.3",
+        "jupyter_client>=5.3.1,<5.4.0",
+        "jupyterlab>=2.0.0,<2.1.0",
+    ],
     data_files=[
         (
             "etc/jupyter/jupyter_notebook_config.d",

@@ -107,6 +107,7 @@ class SshKernel:
         self._logger.debug("Remote kernel info file {0}".format(self.fname))
         self._logger.debug(connection_info)
 
+        self.kernel_pid = 0
         self.status = Status(connection_info, self._logger)
 
     def _setup_logging(self):
@@ -169,26 +170,42 @@ class SshKernel:
             )
             self._logger.debug("Remote ports = %s" % self.remote_ports)
         else:
-            self.status.set_unreachable()
+            self.status.set_unreachable(self.kernel_pid)
             raise SshKernelException("Could not create kernel_info file")
 
     def kernel_client(self):
         self.kc = BlockingKernelClient()
         self.kc.load_connection_info(self.connection_info)
         self.kc.start_channels()
-        self.check_alive()
+
+    def kernel_init(self):
+        if self.check_alive():
+            try:
+                self._logger.debug("Retrieving kernel pid")
+                result = self.kc.execute_interactive(
+                    "import os",
+                    user_expressions={"pid": "os.getpid()"},
+                    store_history=False,
+                    silent=True,
+                    timeout=15,
+                )
+                self._logger.debug("result = %s" % str(result))
+                self.kernel_pid = int(
+                    result["content"]["user_expressions"]["pid"]["data"]["text/plain"]
+                )
+                self._logger.debug("Remote kernel pid %d" % self.kernel_pid)
+            except Exception as ex:
+                print("Error:", ex, ex.args)
 
     def check_alive(self):
-        alive = "alive" if self._connection.isalive() else "NOT alive"
-        self._logger.debug("Connection is {alive}".format(alive=alive))
-
-        alive = "alive" if self.kc.is_alive() else "NOT alive"
-        self._logger.info("Remote kernel is {alive}".format(alive=alive))
+        alive = self._connection.isalive() and self.kc.is_alive()
+        self._logger.info("Remote kernel is {}alive".format("" if alive else "not "))
+        return alive
 
     def interrupt_kernel(self):
         if self._connection.isalive():
             if is_windows:
-                self._logger.warning('On Windows use "Interrupt remot kernel" button')
+                self._logger.warning('On Windows use "Interrupt remote kernel" button')
             else:
                 self._logger.warning("Sending interrupt to remote kernel")
                 self._connection.sendintr()  # send SIGINT
@@ -238,7 +255,8 @@ class SshKernel:
             self._connection = expect.spawn(SSH, args=args, timeout=self.timeout, **ENCODING)
             # subprocess.check_output([SSH] + args)
             self.kernel_client()
-            self.status.set_running()
+            self.kernel_init()
+            self.status.set_running(self.kernel_pid)
         except Exception as e:
             self._logger.error(str(e.with_traceback()))
             self._logger.error("Cannot contiune, exiting")
@@ -263,7 +281,7 @@ class SshKernel:
             except expect.EOF:
                 # The program has exited
                 self._logger.info("The program has exited.")
-                self.status.set_down()
+                self.status.set_down(self.kernel_pid)
                 break
 
         self.close()
