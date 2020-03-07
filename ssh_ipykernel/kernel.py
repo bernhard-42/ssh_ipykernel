@@ -104,8 +104,8 @@ class SshKernel:
         self.fname = "/tmp/.ssh_ipykernel_%s.json" % self.uuid  # POSIX path
 
         self._setup_logging()
-        self._logger.debug("Remote kernel info file {0}".format(self.fname))
-        self._logger.debug(connection_info)
+        self._logger.debug("Remote kernel info file: {0}".format(self.fname))
+        self._logger.debug("Local connection info: {0}".format(connection_info))
 
         self.kernel_pid = 0
         self.status = Status(connection_info, self._logger)
@@ -159,7 +159,7 @@ class SshKernel:
         cmd = "{python} -c '{command}'".format(
             python=self.python_full_path, command="; ".join(script.strip().split("\n"))
         )
-        # self._logger.debug(cmd)
+
         result = self._ssh(cmd)
         self._logger.debug(result)
         if result[0] == 0:
@@ -179,27 +179,38 @@ class SshKernel:
         self.kc.start_channels()
 
     def kernel_init(self):
-        if self.check_alive():
-            try:
-                self._logger.debug("Retrieving kernel pid")
-                result = self.kc.execute_interactive(
-                    "import os",
-                    user_expressions={"pid": "os.getpid()"},
-                    store_history=False,
-                    silent=True,
-                    timeout=15,
-                )
-                self._logger.debug("result = %s" % str(result))
-                self.kernel_pid = int(
-                    result["content"]["user_expressions"]["pid"]["data"]["text/plain"]
-                )
-                self._logger.debug("Remote kernel pid %d" % self.kernel_pid)
-            except Exception as ex:
-                print("Error:", ex, ex.args)
+        if self.check_alive(show_pid=False):
+            done = False
+            i = 0
+            while not done:
+                try:
+                    i += 1
+                    self._logger.debug("Retrieving kernel pid, attempt %d" % i)
+                    result = self.kc.execute_interactive(
+                        "import os",
+                        user_expressions={"pid": "os.getpid()"},
+                        store_history=False,
+                        silent=True,
+                        timeout=2,
+                    )
+                    self._logger.debug("result = %s" % str(result["content"]))
+                    self.kernel_pid = int(
+                        result["content"]["user_expressions"]["pid"]["data"]["text/plain"]
+                    )
+                    self._logger.debug("Remote kernel pid %d" % self.kernel_pid)
+                    done = True
+                except Exception as ex:
+                    self._logger.error("Error: {}".format(str(ex)))
 
-    def check_alive(self):
+    def check_alive(self, show_pid=True):
         alive = self._connection.isalive() and self.kc.is_alive()
-        self._logger.info("Remote kernel is {}alive".format("" if alive else "not "))
+        if show_pid:
+            msg = "Remote kernel ({}, pid = {}) is {}alive".format(
+                self.host, self.kernel_pid, "" if alive else "not "
+            )
+        else:
+            msg = "Remote kernel is {}alive".format("" if alive else "not ")
+        self._logger.info(msg)
         return alive
 
     def interrupt_kernel(self):
@@ -232,9 +243,9 @@ class SshKernel:
 
         # Build remote command
         sudo = "sudo " if self.sudo else ""
-        env = "SSH_IPYKERNEL_HOST={} ".format(self.host)
+
         if self.env is not None:
-            env += " ".join(self.env)
+            env = " ".join(self.env)
         cmd = "{sudo} {env} {python} -m ipykernel_launcher -f {fname}".format(
             sudo=sudo, env=env, python=self.python_full_path, fname=self.fname
         )
