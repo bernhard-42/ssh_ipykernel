@@ -47,3 +47,12 @@ def execute(cmd):
 
 def ssh(host, cmd):
     return execute([SSH, host, cmd])
+
+
+def decode_utf8(s):
+    if isinstance(s, str):
+        return s
+    elif isinstance(s, bytes):
+        return s.decode("utf-8", "replace")
+    else:
+        raise ValueError("s is neither str nor bytes")
