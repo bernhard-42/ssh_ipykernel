@@ -2,6 +2,8 @@ import os
 import mmap
 import hashlib
 
+from ssh_ipykernel.utils import decode_utf8
+
 
 class Status:
     """Store status of kernel start in mmap'd file for external tools
@@ -31,12 +33,15 @@ class Status:
         CONNECT_FAILED: "Connect failed",
     }
 
+    ENDIAN = "little"
+
     def __init__(self, connection_info, logger, status_folder="~/.ssh_ipykernel"):
+        self._logger = logger
+
         self.status_folder = os.path.expanduser(status_folder)
         filename = "%s.status" % self.create_hash(connection_info)
         self.status_file = os.path.join(self.status_folder, filename)
         self.status_available = True
-        self._logger = logger
         self.status = self.create_or_get()
 
     def create_hash(self, connection_info):
@@ -46,7 +51,7 @@ class Status:
             connection_info["stdin_port"],
             connection_info["control_port"],
             connection_info["hb_port"],
-            connection_info.get("key", ""),
+            decode_utf8(connection_info.get("key", "")),
         )
         h = hashlib.sha256()
         h.update(conn_str.encode())
@@ -62,32 +67,32 @@ class Status:
             try:
                 os.mkdir(self.status_folder)
             except Exception as ex:
-                print("Cannot create %s" % self.status_folder)
-                print(ex)
+                self._logger.error("Cannot create %s" % self.status_folder)
+                self._logger.error(str(ex))
                 self.status_available = False
 
         if self.status_available and not os.path.exists(self.status_file):
+            self._logger.debug("Creating new status file %s" % self.status_file)
             try:
                 with open(self.status_file, "wb") as fd:
-                    fd.write((0).to_bytes(10, "big"))
-                self._logger.debug("status file: %s" % self.status_file)
+                    fd.write((0).to_bytes(10, Status.ENDIAN))
             except Exception as ex:
-                print("Cannot initialize %s" % self.status_folder)
-                print(ex)
+                self._logger.error("Cannot initialize %s" % self.status_folder)
+                self._logger.error(str(ex))
                 self.status_available = False
 
         if self.status_available:
-            print("Attaching to mmap file", self.status_file)
+            self._logger.debug("Attaching to status file %s" % self.status_file)
             fd = open(self.status_file, "r+b")
             return mmap.mmap(fd.fileno(), 0)
         else:
             return None
 
     def _to_bytes(self, value, length):
-        return value.to_bytes(length, "big", signed=False)
+        return value.to_bytes(length, Status.ENDIAN, signed=False)
 
     def _from_bytes(self, value):
-        return int.from_bytes(value, "big", signed=False)
+        return int.from_bytes(value, Status.ENDIAN, signed=False)
 
     def _set_status(self, status, pid):
         """Set status if status file exists
@@ -95,15 +100,15 @@ class Status:
         Arguments:
             status {int} -- Status.<value>
         """
-        print("_set_status")
         if self.status_available:
-            print("_set_status", (type(status), status, type(pid), pid))
             new_status = self._to_bytes(status, 2) + self._to_bytes(pid, 8)
-            print("new status", new_status)
             self.status[:10] = new_status
-            self._logger.debug("status set")
             self.status.flush()
-            self._logger.debug("Status: %s" % Status.MESSAGES[status])
+            self._logger.debug(
+                "Status for remote pid {pid}: {status}".format(
+                    status=Status.MESSAGES[status], pid=pid
+                )
+            )
 
     def _get_status(self):
         """Get status if status file exists
@@ -145,7 +150,6 @@ class Status:
     def set_running(self, pid):
         """Set current status to Status.RUNNING
         """
-        print("set_running", pid)
         self._set_status(Status.RUNNING, pid)
 
     def set_down(self, pid):
@@ -220,10 +224,10 @@ class Status:
         try:
             if self.status_available:
                 os.remove(self.status_file)
-            else:
-                print("no need to delete status file")
+            # else:
+            #     self._logger.info("no need to delete status file")
         except Exception as ex:
-            print(ex)
+            self._logger.error(str(ex))
 
     def get_status_message(self):
         """Get human readable versionof status
