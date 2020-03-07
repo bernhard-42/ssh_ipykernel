@@ -202,6 +202,9 @@ class SshKernel:
                 except Exception as ex:
                     self._logger.error("Error: {}".format(str(ex)))
 
+    def kernel_customize(self):
+        pass
+
     def check_alive(self, show_pid=True):
         alive = self._connection.isalive() and self.kc.is_alive()
         if show_pid:
@@ -265,8 +268,13 @@ class SshKernel:
             # Start the child process
             self._connection = expect.spawn(SSH, args=args, timeout=self.timeout, **ENCODING)
             # subprocess.check_output([SSH] + args)
+            #
+            # get blocking kernel client
             self.kernel_client()
+            # initialize it
             self.kernel_init()
+            # run custom code if part of sub class
+            self.kernel_customize()
             self.status.set_running(self.kernel_pid)
         except Exception as e:
             self._logger.error(str(e.with_traceback()))
