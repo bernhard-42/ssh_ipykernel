@@ -25,7 +25,7 @@ class InterruptButtonExtension implements DocumentRegistry.IWidgetExtension<Note
   createNew(panel: NotebookPanel, context: DocumentRegistry.IContext<INotebookModel>): IDisposable {
 
     let interrupt = () => {
-      console.info('InterruptButtonExtension: Interrupt clicked.', this._kernel_name, this._kernel_id);
+      console.info('InterruptButtonExtension: Interrupt clicked (kernel: ' + this._kernel_name + ')');
       if (this._kernel_name.substring(0, 3) === "SSH") {
         InterruptRequest.interrupt({ id: this._kernel_id })
       } else {
@@ -51,18 +51,6 @@ class InterruptButtonExtension implements DocumentRegistry.IWidgetExtension<Note
       this._button.dispose();
     });
   }
-
-  // not working
-  // hide() {
-  //   console.debug("hide", this)
-  //   this._button.hide()
-  // }
-
-  // not working
-  // show() {
-  //   console.debug("show", this)
-  //   this._button.show()
-  // }
 }
 
 namespace InterruptRequest {
@@ -73,7 +61,7 @@ namespace InterruptRequest {
   }
 
   async function request(command: string, id: string) {
-    console.info("InterruptRequest: Requesting interrupt for id", id)
+    console.info("Ssh-ipykernel: InterruptRequest - Requesting interrupt for id", id)
     var url = URLExt.join(SERVER_CONNECTION_SETTINGS.baseUrl, command);
     url = url + "?id=" + id;
 
@@ -85,12 +73,12 @@ namespace InterruptRequest {
     if (response.ok) {
       var result = await response.json();
       if (result["code"] == 0) {
-        console.info("InterruptRequest: Success")
+        console.info("Ssh-ipykernel: InterruptRequest = Success")
       } else {
-        console.error("InterruptRequest: Error", result)
+        console.error("Ssh-ipykernel: InterruptRequest = Error", result)
       }
     } else {
-      console.error("interrupt response: unknown", response)
+      console.error("Ssh-ipykernel: Interrupt response = Error", response)
     }
   }
 }
@@ -99,16 +87,31 @@ namespace InterruptRequest {
 class RemoteSSH {
 
   private _extension: InterruptButtonExtension;
+  private _notebookTracker: INotebookTracker;
 
   constructor(extension: InterruptButtonExtension, notebookTracker: INotebookTracker, labShell: ILabShell) {
     this._extension = extension;
+    this._notebookTracker = notebookTracker
 
-    labShell.restored.then((layout) => notebookTracker.currentWidget.sessionContext.ready).then(
-      () => {
+    labShell.restored.then(
+      (layout) => {
+        // notebookTracker.currentWidget might be wrong after new start or browser refresh with more 
+        // than 1 open tab. Hence loop through all open tabs to find the visble one
+        this._notebookTracker.forEach((notebookPanel: NotebookPanel) => {
+          if (notebookPanel.isVisible) {
+            console.debug("Ssh-ipykernel: select open notebook")
+            this.update(1, notebookPanel.sessionContext)
+          }
+        })
 
-        console.debug("RemoteSSH: Connect to labShell.currentChanged")
+        // When a new tab gets selected, update the kernel id
+        this._notebookTracker.currentChanged.connect((sender: INotebookTracker, notebookPanel: NotebookPanel) => {
+          console.debug("Ssh-ipykernel: selected notebook changed")
+          this.update(2)
+        })
+
+        // When a kernel gets strted, restarted or stopped, update the kernel id
         labShell.currentChanged.connect((_, change) => {
-          console.log("labShell.currentChanged", change)
           const { oldValue, newValue } = change;
           if (oldValue) {
             var context = (oldValue as NotebookPanel).sessionContext
@@ -117,34 +120,47 @@ class RemoteSSH {
           if (newValue) {
             var context = (newValue as NotebookPanel).sessionContext
             context.connectionStatusChanged.connect(this.onConnectionStatusChange, this)
-            this.update(context)
           }
         })
-
-        var context = notebookTracker.currentWidget.sessionContext;
-        console.debug("RemoteSSH: labShell.restored, context.session.id =", context.session.id)
-
-        this.update(context)
       }
     )
   }
 
   onConnectionStatusChange(context: ISessionContext, change: any) {
-    console.log("onConnectionStatusChange", change)
+    console.debug("Ssh-ipykernel: kernel state changed " + change)
     if (change == "disconnected") {
-      this._extension.kernel_id = ""
-      this._extension.kernel_name = ""
+      this.cleanup()
     } else if (change == "connected") {
-      this.update(context)
+      this.update(3)
     }
   }
 
-  update(context: ISessionContext) {
-    var id = context.session.kernel.id
-    var name = context.kernelDisplayName
-    console.log("RemoteSSH:", name, id)
-    this._extension.kernel_id = id
-    this._extension.kernel_name = name
+  cleanup() {
+    console.info("Ssh-ipykernel: cleanup")
+    this._extension.kernel_id = ""
+    this._extension.kernel_name = ""
+  }
+
+  update(sender: number, context: ISessionContext = null) {
+    if (!context) {
+      var context = this._notebookTracker.currentWidget.sessionContext;
+    }
+    context.ready.then(() => {
+      // console.debug("Ssh-ipykernel: update context", context);
+      if (context.session) {
+        var id = context.session.kernel.id
+        var name = context.kernelDisplayName
+        var path = context.session.path
+        console.info("Ssh-ipykernel: update('" + sender + "'): '" + name + "', '" + id + "', '" + path + "'")
+        this._extension.kernel_id = id
+        this._extension.kernel_name = name
+      } else {
+        this.cleanup()
+      }
+    }).catch((reason) => {
+      console.error("Ssh-ipykernel: update error ", reason);
+      this.cleanup()
+    })
   }
 }
 
