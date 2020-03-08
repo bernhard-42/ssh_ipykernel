@@ -75,7 +75,7 @@ class Status:
             self._logger.debug("Creating new status file %s" % self.status_file)
             try:
                 with open(self.status_file, "wb") as fd:
-                    fd.write((0).to_bytes(10, Status.ENDIAN))
+                    fd.write((0).to_bytes(12, Status.ENDIAN))
             except Exception as ex:
                 self._logger.error("Cannot initialize %s" % self.status_folder)
                 self._logger.error(str(ex))
@@ -94,7 +94,7 @@ class Status:
     def _from_bytes(self, value):
         return int.from_bytes(value, Status.ENDIAN, signed=False)
 
-    def _set_status(self, status, pid):
+    def _set_status(self, status, pid, sudo):
         """Set status if status file exists
 
         Arguments:
@@ -102,7 +102,8 @@ class Status:
         """
         if self.status_available:
             new_status = self._to_bytes(status, 2) + self._to_bytes(pid, 8)
-            self.status[:10] = new_status
+            new_status += self._to_bytes(1 if sudo else 0, 2)
+            self.status[:12] = new_status
             self.status.flush()
             self._logger.debug(
                 "Status for remote pid {pid}: {status}".format(
@@ -122,45 +123,56 @@ class Status:
             return Status.UNKNOWN
 
     def get_pid(self):
-        """Get status if status file exists
+        """Get remote pid of a running ssh_ipykernel
 
         Returns:
-            int -- Status.<value>
+            int -- pid
         """
         if self.status_available:
             return self._from_bytes(self.status[2:10])
         else:
             return -1
 
-    def set_unreachable(self, pid):
+    def is_sudo(self):
+        """Get sudo state of a running ssh_ipykernel
+
+        Returns:
+            bool -- True if sudo is used, else False
+        """
+        if self.status_available:
+            return self._from_bytes(self.status[10:12]) == 1
+        else:
+            return False
+
+    def set_unreachable(self, pid, sudo):
         """Set current status to Status.UNREACHABLE
         """
-        self._set_status(Status.UNREACHABLE, pid)
+        self._set_status(Status.UNREACHABLE, pid, sudo)
 
-    def set_kernel_killed(self, pid):
+    def set_kernel_killed(self, pid, sudo):
         """Set current status to Status.KERNEL_KILLED
         """
-        self._set_status(Status.KERNEL_KILLED, pid)
+        self._set_status(Status.KERNEL_KILLED, pid, sudo)
 
-    def set_starting(self, pid):
+    def set_starting(self, pid, sudo):
         """Set current status to Status.STARTING
         """
-        self._set_status(Status.STARTING, pid)
+        self._set_status(Status.STARTING, pid, sudo)
 
-    def set_running(self, pid):
+    def set_running(self, pid, sudo):
         """Set current status to Status.RUNNING
         """
-        self._set_status(Status.RUNNING, pid)
+        self._set_status(Status.RUNNING, pid, sudo)
 
-    def set_down(self, pid):
+    def set_down(self, pid, sudo):
         """Set current status to Status.DOWN
         """
-        self._set_status(Status.DOWN, pid)
+        self._set_status(Status.DOWN, pid, sudo)
 
-    def set_connect_failed(self, pid):
+    def set_connect_failed(self, pid, sudo):
         """Set current status to Status.CONNECT_FAILED
         """
-        self._set_status(Status.CONNECT_FAILED, pid)
+        self._set_status(Status.CONNECT_FAILED, pid, sudo)
 
     def is_unknown(self):
         """Check for Status.UNKNOWN

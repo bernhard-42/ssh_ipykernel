@@ -170,7 +170,7 @@ class SshKernel:
             )
             self._logger.debug("Remote ports = %s" % self.remote_ports)
         else:
-            self.status.set_unreachable(self.kernel_pid)
+            self.status.set_unreachable(self.kernel_pid, self.sudo)
             raise SshKernelException("Could not create kernel_info file")
 
     def kernel_client(self):
@@ -275,7 +275,7 @@ class SshKernel:
             self.kernel_init()
             # run custom code if part of sub class
             self.kernel_customize()
-            self.status.set_running(self.kernel_pid)
+            self.status.set_running(self.kernel_pid, self.sudo)
         except Exception as e:
             self._logger.error(str(e.with_traceback()))
             self._logger.error("Cannot contiune, exiting")
@@ -300,7 +300,7 @@ class SshKernel:
             except expect.EOF:
                 # The program has exited
                 self._logger.info("The program has exited.")
-                self.status.set_down(self.kernel_pid)
+                self.status.set_down(self.kernel_pid, self.sudo)
                 break
 
         self.close()

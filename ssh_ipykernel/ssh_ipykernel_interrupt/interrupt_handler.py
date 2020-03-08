@@ -46,26 +46,30 @@ class SshInterruptHandler(IPythonHandler):
     @web.authenticated
     def get(self):
         """GET handler to interrrupt remote ssh ipykernel"""
-        logger.warning("Interrupt remote kernel")
+
         kernel_id = self.get_argument("id", None, True)
         logger.debug("kernel id %s" % kernel_id)
         kernel = self.get_kernel(kernel_id)
-        # logger.debug("session%s" % str(dir(kernel)))
-        # logger.debug("pid%s" % str(kernel.session.pid))
-        # logger.debug("kernel_spec %s" % str(kernel.kernel_spec.argv))
-        # logger.debug("connection_info%s" % str(kernel.get_connection_info()))
 
         status = Status(kernel.get_connection_info(), logger)
-        pid = status.get_pid()
+        if status.is_running():
+            pid = status.get_pid()
 
-        host = ""
-        for i, v in enumerate(kernel.kernel_spec.argv):
-            if v == "--host":
-                host = kernel.kernel_spec.argv[i + 1]
-                break
+            host = ""
+            for i, v in enumerate(kernel.kernel_spec.argv):
+                if v == "--host":
+                    host = kernel.kernel_spec.argv[i + 1]
+                    break
 
-        cmd = "kill -{sig} {pid}".format(sig=signal.SIGINT.real, pid=pid)
-        result = ssh(host, cmd)
+            logger.warning("Interrupt remote kernel ({}, pid = {})".format(host, pid))
+
+            cmd = "kill -{sig} {pid}".format(sig=signal.SIGINT.real, pid=pid)
+            if status.is_sudo():
+                cmd = "sudo " + cmd
+            result = ssh(host, cmd)
+        else:
+            result = {"code": -1, "data": "Remote kernel not running"}
+
         self.finish(json.dumps(result))
 
 
