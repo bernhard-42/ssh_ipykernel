@@ -17,6 +17,11 @@ prepare: clean
 	git status
 	git commit -m "cleanup before release"
 
+ext:
+	cd interrupt_ipykernel_labextension && \
+	jupyter labextension install --no-build && \
+	jupyter lab build --dev-build=True --minimize=False
+	
 # Version commands
 
 bump:
