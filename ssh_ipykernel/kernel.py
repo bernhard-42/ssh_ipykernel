@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 from pathlib import Path, PurePosixPath
 import platform
@@ -11,6 +10,8 @@ import uuid
 
 from jupyter_client import BlockingKernelClient
 from tornado.log import LogFormatter
+
+from ssh_ipykernel.utils import setup_logging
 
 if platform.system() == "Windows":
     # os.environ["WEXPECT_SPAWN_CLASS"] = "SpawnPipe"
@@ -103,29 +104,12 @@ class SshKernel:
         self.uuid = str(uuid.uuid4())
         self.fname = "/tmp/.ssh_ipykernel_%s.json" % self.uuid  # POSIX path
 
-        self._setup_logging()
+        self._logger = setup_logging("SshKernel")
         self._logger.debug("Remote kernel info file: {0}".format(self.fname))
         self._logger.debug("Local connection info: {0}".format(connection_info))
 
         self.kernel_pid = 0
         self.status = Status(connection_info, self._logger)
-
-    def _setup_logging(self):
-        """Setup Logging
-        """
-        _log_fmt = (
-            "%(color)s[%(levelname)1.1s %(asctime)s.%(msecs).03d "
-            "%(name)s]%(end_color)s %(message)s"
-        )
-        _log_datefmt = "%H:%M:%S"
-
-        self._logger = logging.getLogger("ssh_ipykernel")
-        self._logger.setLevel("DEBUG")
-        self._logger.propagate = False
-        console = logging.StreamHandler()
-        console.setLevel(logging.DEBUG)
-        console.setFormatter(LogFormatter(fmt=_log_fmt, datefmt=_log_datefmt))
-        self._logger.addHandler(console)
 
     def _execute(self, cmd):
         try:

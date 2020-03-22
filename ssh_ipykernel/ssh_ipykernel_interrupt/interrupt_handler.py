@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import signal
 
@@ -38,7 +37,6 @@ class SshInterruptHandler(IPythonHandler):
                 break
 
         if kernel_info is not None:
-            print("kernel_info", kernel_info)
             return km.get_kernel(kernel_info["id"])
         else:
             return None

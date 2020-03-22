@@ -1,4 +1,5 @@
 import logging
+import os
 import platform
 import subprocess
 from tornado.log import LogFormatter
@@ -21,7 +22,8 @@ def setup_logging(name):
     _log_datefmt = "%H:%M:%S"
 
     logger = logging.getLogger(name)
-    logger.setLevel("DEBUG")
+    debug_level = os.environ.get("DEBUG", "INFO")
+    logger.setLevel(debug_level)
     logger.propagate = False
     console = logging.StreamHandler()
     console.setLevel(logging.DEBUG)
