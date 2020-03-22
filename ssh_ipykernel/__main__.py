@@ -26,17 +26,31 @@ def main(host, connection_info, python_path, sudo, timeout, env):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=False)
     #    parser._action_groups.pop()
-    optional = parser.add_argument_group('optional arguments')
+    optional = parser.add_argument_group("optional arguments")
     optional.add_argument(
-        '--help', '-h', action='help', default=argparse.SUPPRESS, help='show this help message and exit')
-    optional.add_argument('--timeout', '-t', type=int, help="timeout for remote commands", default=5)
-    optional.add_argument('--env', '-e', nargs="*", help='environment variables for the remote kernel in the form: VAR1=value1 VAR2=value2')
-    optional.add_argument('-s', action='store_true', help='sudo required to start kernel on the remote machine')
+        "--help",
+        "-h",
+        action="help",
+        default=argparse.SUPPRESS,
+        help="show this help message and exit",
+    )
+    optional.add_argument(
+        "--timeout", "-t", type=int, help="timeout for remote commands", default=5
+    )
+    optional.add_argument(
+        "--env",
+        "-e",
+        nargs="*",
+        help="environment variables for the remote kernel in the form: VAR1=value1 VAR2=value2",
+    )
+    optional.add_argument(
+        "-s", action="store_true", help="sudo required to start kernel on the remote machine"
+    )
 
-    required = parser.add_argument_group('required arguments')
-    required.add_argument('--file', '-f', required=True, help="jupyter kernel connection file")
-    required.add_argument('--host', '-H', required=True, help="remote host")
-    required.add_argument('--python', '-p', required=True, help="remote python_path")
+    required = parser.add_argument_group("required arguments")
+    required.add_argument("--file", "-f", required=True, help="jupyter kernel connection file")
+    required.add_argument("--host", "-H", required=True, help="remote host")
+    required.add_argument("--python", "-p", required=True, help="remote python_path")
     args = parser.parse_args()
 
     try:
