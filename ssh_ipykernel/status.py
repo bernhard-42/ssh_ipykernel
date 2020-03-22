@@ -45,13 +45,12 @@ class Status:
         self.status = self.create_or_get()
 
     def create_hash(self, connection_info):
-        conn_str = "%d-%d-%d-%d-%d-%s.status" % (
+        conn_str = "%d-%d-%d-%d-%d" % (
             connection_info["shell_port"],
             connection_info["iopub_port"],
             connection_info["stdin_port"],
             connection_info["control_port"],
             connection_info["hb_port"],
-            decode_utf8(connection_info.get("key", "")),
         )
         h = hashlib.sha256()
         h.update(conn_str.encode())
