@@ -179,8 +179,8 @@ class SshKernel:
         self.kc.start_channels()
 
     def kernel_init(self):
+        done = False
         if self.check_alive(show_pid=False):
-            done = False
             i = 0
             while not done:
                 try:
@@ -200,7 +200,15 @@ class SshKernel:
                     self._logger.debug("Remote kernel pid %d" % self.kernel_pid)
                     done = True
                 except Exception as ex:
-                    self._logger.error("Error: {}".format(str(ex)))
+                    msg = str(ex)
+                    if msg == "Timeout waiting for output":
+                        self._logger.warning("Warning: {}".format(msg))
+                        if i > 5:
+                            self._logger.error("Maxx attempts (5) reached, stopping")
+                            break
+                    else:
+                        self._logger.error("Warning: {}".format(str(ex)))
+        return done
 
     def kernel_customize(self):
         pass
@@ -272,10 +280,12 @@ class SshKernel:
             # get blocking kernel client
             self.kernel_client()
             # initialize it
-            self.kernel_init()
-            # run custom code if part of sub class
-            self.kernel_customize()
-            self.status.set_running(self.kernel_pid, self.sudo)
+            if self.kernel_init():
+                self.status.set_running(self.kernel_pid, self.sudo)
+                # run custom code if part of sub class
+                self.kernel_customize()
+            else:
+                self.status.set_connect_failed(-1, self.sudo)
         except Exception as e:
             self._logger.error(str(e.with_traceback()))
             self._logger.error("Cannot contiune, exiting")
