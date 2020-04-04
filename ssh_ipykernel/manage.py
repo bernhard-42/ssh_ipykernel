@@ -20,6 +20,7 @@ def add_kernel(
     system=False,
     timeout=5,
     module="ssh_ipykernel",
+    opt_args=None,
 ):
     """Add a new kernel specification for an SSH Kernel
 
@@ -47,6 +48,9 @@ def add_kernel(
     else:
         username = getpass.getuser()
 
+    if opt_args is None:
+        opt_args = []
+
     kernel_json = {
         "argv": [
             local_python_path,
@@ -58,9 +62,9 @@ def add_kernel(
             remote_python_path,
             "--timeout",
             str(timeout),
-            "-f",
-            "{connection_file}",
-        ],
+        ]
+        + opt_args
+        + ["-f", "{connection_file}",],
         "display_name": display_name,
         "language": "python",
     }
