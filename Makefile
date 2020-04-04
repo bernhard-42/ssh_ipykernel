@@ -48,7 +48,7 @@ release:
 	git tag -a v$(CURRENT_VERSION) -m "Latest release: $(CURRENT_VERSION)"
 
 install:
-	@echo "$(OK_COLOR)=> Installing databrickslabs_jupyterlab$(NO_COLOR)"
+	@echo "$(OK_COLOR)=> Installing ssh_ipykernel$(NO_COLOR)"
 	@pip install --upgrade .
 
 check_dist:
