@@ -100,6 +100,11 @@ class Status:
             status {int} -- Status.<value>
         """
         if self.status_available:
+            if pid == None:
+                pid = self.get_pid()
+            if sudo == None:
+                sudo = self.is_sudo()
+
             new_status = self._to_bytes(status, 2) + self._to_bytes(pid, 8)
             new_status += self._to_bytes(1 if sudo else 0, 2)
             self.status[:12] = new_status
@@ -143,17 +148,17 @@ class Status:
         else:
             return False
 
-    def set_unreachable(self, pid, sudo):
+    def set_unreachable(self, pid=None, sudo=None):
         """Set current status to Status.UNREACHABLE
         """
         self._set_status(Status.UNREACHABLE, pid, sudo)
 
-    def set_kernel_killed(self, pid, sudo):
+    def set_kernel_killed(self, pid=None, sudo=None):
         """Set current status to Status.KERNEL_KILLED
         """
         self._set_status(Status.KERNEL_KILLED, pid, sudo)
 
-    def set_starting(self, pid, sudo):
+    def set_starting(self, pid=None, sudo=None):
         """Set current status to Status.STARTING
         """
         self._set_status(Status.STARTING, pid, sudo)
@@ -163,12 +168,12 @@ class Status:
         """
         self._set_status(Status.RUNNING, pid, sudo)
 
-    def set_down(self, pid, sudo):
+    def set_down(self, pid=None, sudo=None):
         """Set current status to Status.DOWN
         """
         self._set_status(Status.DOWN, pid, sudo)
 
-    def set_connect_failed(self, pid, sudo):
+    def set_connect_failed(self, pid=None, sudo=None):
         """Set current status to Status.CONNECT_FAILED
         """
         self._set_status(Status.CONNECT_FAILED, pid, sudo)

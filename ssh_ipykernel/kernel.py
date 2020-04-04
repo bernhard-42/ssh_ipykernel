@@ -188,7 +188,8 @@ class SshKernel:
                     if msg == "Timeout waiting for output":
                         self._logger.warning("Warning: {}".format(msg))
                         if i > 5:
-                            self._logger.error("Maxx attempts (5) reached, stopping")
+                            self._logger.error("Max attempts (5) reached, stopping")
+                            raise SshKernelException("Could not initialize kernel")
                             break
                     else:
                         self._logger.error("Warning: {}".format(str(ex)))
@@ -269,7 +270,7 @@ class SshKernel:
                 # run custom code if part of sub class
                 self.kernel_customize()
             else:
-                self.status.set_connect_failed(-1, self.sudo)
+                self.status.set_connect_failed(sudo=self.sudo)
         except Exception as e:
             self._logger.error(str(e.with_traceback()))
             self._logger.error("Cannot contiune, exiting")
