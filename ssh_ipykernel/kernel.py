@@ -84,6 +84,8 @@ class SshKernel:
         ssh_config=None,
         quiet=True,
         verbose=False,
+        msg_interval=30,
+        logger=None,
     ):
         self.host = host
         self.connection_info = connection_info
@@ -104,12 +106,18 @@ class SshKernel:
         self.uuid = str(uuid.uuid4())
         self.fname = "/tmp/.ssh_ipykernel_%s.json" % self.uuid  # POSIX path
 
-        self._logger = setup_logging("SshKernel")
+        if logger is None:
+            self._logger = setup_logging("SshKernel")
+        else:
+            self._logger = logger
+
         self._logger.debug("Remote kernel info file: {0}".format(self.fname))
         self._logger.debug("Local connection info: {0}".format(connection_info))
 
         self.kernel_pid = 0
         self.status = Status(connection_info, self._logger)
+        self.msg_interval = int(msg_interval / timeout)
+        self.msg_counter = 0
 
     def _execute(self, cmd):
         try:
@@ -206,7 +214,12 @@ class SshKernel:
             )
         else:
             msg = "Remote kernel is {}alive".format("" if alive else "not ")
-        self._logger.info(msg)
+
+        if not alive or self.msg_counter % self.msg_interval == 0:
+            self.msg_counter = 0
+            self._logger.info(msg)
+
+        self.msg_counter += 1
         return alive
 
     def interrupt_kernel(self):
@@ -272,7 +285,8 @@ class SshKernel:
             else:
                 self.status.set_connect_failed(sudo=self.sudo)
         except Exception as e:
-            self._logger.error(str(e.with_traceback()))
+            tb = sys.exc_info()[2]
+            self._logger.error(str(e.with_traceback(tb)))
             self._logger.error("Cannot contiune, exiting")
             sys.exit(1)
 
