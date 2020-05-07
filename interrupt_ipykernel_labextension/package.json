@@ -1,6 +1,6 @@
 {
   "name": "interrupt-ipykernel-extension",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Add a button to reliably interrupt a IPython kernel",
   "keywords": [
     "jupyter",
