@@ -46,6 +46,6 @@ setup(
     # packages=find_packages(include=["ssh_ipykernel", "interrupt_ssh_ipykernel"]),
     python_requires=">=3.5",
     url="https://github.com/bernhard-42/ssh_ipykernel",
-    version="0.9.4",
+    version="1.0.0",
     zip_safe=False,
 )
