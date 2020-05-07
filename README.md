@@ -11,6 +11,14 @@ The ideas are heavily based on [remote_ikernel](https://bitbucket.org/tdaff/remo
 * The ssh connection and the tunnel command will be retried in case of network or similar errors
 * introduced signal handling with python's `signal` module
 
+## Installation
+
+```bash
+
+pip install ssh_ipykernel
+jupyter labextension install interrupt-ipykernel-extension
+```
+
 ## Usage
 
 * Usage of ssh_ipykernel
@@ -115,6 +123,19 @@ The ideas are heavily based on [remote_ikernel](https://bitbucket.org/tdaff/remo
     "display_name": "SSH btest:demo(abc)",
     "language": "python"
   }
+  ```
+
+* Add an ssh config entry to `~/.ssh/config`for the remote host:
+
+  ```text
+  Host btest
+      HostName btest.example.com
+      User john
+      Port 22
+      IdentityFile ~/.ssh/id_rsa
+      ServerAliveInterval 30
+      ConnectTimeout 5
+      ServerAliveCountMax 5760 
   ```
 
 ## Credits

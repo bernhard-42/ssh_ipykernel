@@ -38,10 +38,10 @@ endif
 
 bump_ext:
 ifdef part
-	$(eval cur_version=$(shell cd interrupt_ipykernel_labextension// && npm version $(part) --preid=rc))
+	$(eval cur_version=$(shell cd interrupt_ipykernel_labextension/ && npm version $(part) --preid=rc))
 else
 ifdef version
-	$(eval cur_version := $(shell cd interrupt_ipykernel_labextension// && npm version $(version)))
+	$(eval cur_version := $(shell cd interrupt_ipykernel_labextension/ && npm version $(version)))
 else
 	@echo "$(ERROR_COLOR)Provide part=major|minor|patch|premajor|preminor|prepatch|prerelease or version=x.y.z...$(NO_COLOR)"
 	exit 1
@@ -71,6 +71,9 @@ check_dist:
 
 upload:
 	@twine upload dist/*
+
+upload_ext:
+	cd interrupt_ipykernel_labextension && npm publish
 
 # dev tools
 

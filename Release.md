@@ -41,9 +41,6 @@ In case the jupyter labextions has been changed:
     make upload_ext
     ```
 
-4. Process with **Python package** since labextensions.txt is changed!
-
-
 ### 3 Python package
 
 1. Bump version of databrickslabs_jupyterlab
