@@ -1,15 +1,52 @@
 # Release documentation
 
-## 1 Release process
+## Release process
 
-1. Clean environment
+### 1 Clean environment
 
     ```bash
     make clean    # delete all temp files
     make prepare  # commit deletions
     ```
 
-2. Bump version of databrickslabs_jupyterlab
+### 2 Labextension
+
+In case the jupyter labextions has been changed:
+
+1. Commit changes
+
+2. Bump version of *databrickslabs_jupyterlab_statusbar*
+
+    - A new release candidate with rc0
+
+      ```bash
+      make bump_ext part=premajor|preminor|prepatch
+      ```
+
+    - A new build
+
+      ```bash
+      make bump_ext part=prerelease
+      ```
+
+    - A new release without release candidate
+
+      ```bash
+      make bump_ext version=major.minor.patch
+      ```
+
+3. Deploy to npmjs.com
+
+    ```bash
+    make upload_ext
+    ```
+
+4. Process with **Python package** since labextensions.txt is changed!
+
+
+### 3 Python package
+
+1. Bump version of databrickslabs_jupyterlab
 
     - A new release candidate with rc0
 
@@ -35,25 +72,25 @@
       make bump part=major|minor|patch version=major.minor.patch
       ```
 
-3. Create distribution
+2. Create distribution
 
     ```bash
     make dist
     ```
 
-4. Create and tag release
+3. Create and tag release
 
     ```bash
     make release
     ```
 
-5. Deploy to pypi
+4. Deploy to pypi
 
     ```bash
     make upload
     ```
 
-6. Push repo and tag
+### 4 Push repo and tag
 
     ```bash
     git push

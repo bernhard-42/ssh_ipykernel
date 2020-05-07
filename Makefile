@@ -36,6 +36,21 @@ else
 	exit 1
 endif
 
+bump_ext:
+ifdef part
+	$(eval cur_version=$(shell cd interrupt_ipykernel_labextension// && npm version $(part) --preid=rc))
+else
+ifdef version
+	$(eval cur_version := $(shell cd interrupt_ipykernel_labextension// && npm version $(version)))
+else
+	@echo "$(ERROR_COLOR)Provide part=major|minor|patch|premajor|preminor|prepatch|prerelease or version=x.y.z...$(NO_COLOR)"
+	exit 1
+endif
+endif
+	@echo "$(OK_COLOR)=> New version: $(cur_version:v%=%)$(NO_COLOR)"
+	git add interrupt_ipykernel_labextension/package.json
+	git commit -m "extension release $(cur_version)"
+
 # Dist commands
 
 dist:
