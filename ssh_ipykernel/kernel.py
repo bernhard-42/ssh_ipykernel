@@ -132,9 +132,13 @@ class SshKernel:
     def close(self):
         """Close pcssh connection
         """
-        if self._connection is not None and self._connection.isalive():
-            self._logger.debug("Closing ssh connection")
-            self._connection.logout()
+        if self._connection is not None:  # and self._connection.isalive():
+            if self._connection.isalive():
+                self._connection.logout()
+                self._logger.debug("Ssh connection closed")
+            if self.kc.is_alive():
+                self.kc.stop_channels()
+                self._logger.debug("Kernel client channels stopped")
 
     def create_remote_connection_info(self):
         """Create a remote ipykernel connection info file
