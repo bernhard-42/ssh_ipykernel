@@ -12,11 +12,6 @@ with open("README.md") as readme_file:
 with open("HISTORY.md") as history_file:
     history = history_file.read()
 
-if platform.system() == "Windows":
-    expect = ["wexpect==3.3.2"]
-else:
-    expect = ["pexpect==4.7.0"]
-
 setup(
     author="Bernhard Walter",
     author_email="b_walter@arcor.de",
@@ -34,8 +29,9 @@ setup(
         "tornado>=6.0.3,<=6.1.0",
         "jupyter_client>=5.3.1,<5.4.0",
         "jupyterlab>=2.1.0,<2.2.0",
-    ]
-    + expect,
+        "wexpect==3.3.2;platform_system=='Windows'",
+        "pexpect==4.7.0;platform_system!='Windows'",
+    ],
     data_files=[
         (
             "etc/jupyter/jupyter_notebook_config.d",
