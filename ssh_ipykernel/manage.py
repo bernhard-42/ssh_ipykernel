@@ -125,6 +125,8 @@ if __name__ == "__main__":
 
     if args.env:
         env = " ".join(args.env)
+    else:
+        env = None
 
     add_kernel(
         host=args.host,
