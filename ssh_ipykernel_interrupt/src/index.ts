@@ -172,6 +172,7 @@ function activate(app: JupyterFrontEnd, notebookTracker: INotebookTracker, labSh
   let buttonExtension = new InterruptButtonExtension();
   app.docRegistry.addWidgetExtension('Notebook', buttonExtension);
   new RemoteSSH(buttonExtension, notebookTracker, labShell)
+  console.log("ssh_ipykernel interrupt extension actived")
 }
 
 const extension: JupyterFrontEndPlugin<void> = {

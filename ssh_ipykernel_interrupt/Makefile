@@ -17,11 +17,6 @@ prepare: clean
 	git status
 	git commit -m "cleanup before release"
 
-ext:
-	cd interrupt_ipykernel_labextension && \
-	jupyter labextension install --no-build && \
-	jupyter lab build --dev-build=True --minimize=False
-	
 # Version commands
 
 bump:
@@ -39,6 +34,7 @@ endif
 # Dist commands
 
 dist:
+	@jlpm run build:prod
 	@python setup.py sdist bdist_wheel
 
 release:
@@ -48,7 +44,7 @@ release:
 	git tag -a v$(CURRENT_VERSION) -m "Latest release: $(CURRENT_VERSION)"
 
 install:
-	@echo "$(OK_COLOR)=> Installing ssh_ipykernel$(NO_COLOR)"
+	@echo "$(OK_COLOR)=> Installing ssh_ipykernel_interrupt$(NO_COLOR)"
 	@pip install --upgrade .
 
 check_dist:

@@ -8,40 +8,7 @@
     make clean    # delete all temp files
     make prepare  # commit deletions
     ```
-
-### 2 Labextension
-
-In case the jupyter labextions has been changed:
-
-1. Commit changes
-
-2. Bump version of *databrickslabs_jupyterlab_statusbar*
-
-    - A new release candidate with rc0
-
-      ```bash
-      make bump_ext part=premajor|preminor|prepatch
-      ```
-
-    - A new build
-
-      ```bash
-      make bump_ext part=prerelease
-      ```
-
-    - A new release without release candidate
-
-      ```bash
-      make bump_ext version=major.minor.patch
-      ```
-
-3. Deploy to npmjs.com
-
-    ```bash
-    make upload_ext
-    ```
-
-### 3 Python package
+### 2 Python package
 
 1. Bump version of databrickslabs_jupyterlab
 
@@ -87,6 +54,9 @@ In case the jupyter labextions has been changed:
     make upload
     ```
 
+### 3 Labextension
+
+1. Change into folder `ssh_ipykernel_interrupt` and the follow 2
 ### 4 Push repo and tag
 
     ```bash
