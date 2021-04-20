@@ -32,6 +32,7 @@ setup(
         "jupyterlab>=3.0.0,<3.1.0",
         "wexpect==3.3.2;platform_system=='Windows'",
         "pexpect==4.8.0;platform_system!='Windows'",
+        "ssh_ipykernel_interrupt==1.1.0",
     ],
     extras_require={
         "dev": {"twine", "bumpversion", "black", "pylint", "wheel"},
@@ -52,6 +53,6 @@ setup(
     packages=find_packages(exclude=["ssh_ipykernel_interrupt"]),
     python_requires=">=3.5",
     url="https://github.com/bernhard-42/ssh_ipykernel",
-    version="1.1.0",
+    version="1.1.1",
     zip_safe=False,
 )
