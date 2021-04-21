@@ -42,10 +42,10 @@ setup(
             "etc/jupyter/jupyter_server_config.d",
             ["ssh_ipykernel/ssh_ipykernel_interrupt/jupyter_server/ssh-ipykernel-interrupt.json"],
         ),
-        (
-            "etc/jupyter/jupyter_notebook_config.d",
-            ["ssh_ipykernel/ssh_ipykernel_interrupt/jupyter_notebook/ssh-ipykernel-interrupt.json"],
-        ),
+        # (
+        #     "etc/jupyter/jupyter_notebook_config.d",
+        #     ["ssh_ipykernel/ssh_ipykernel_interrupt/jupyter_notebook/ssh-ipykernel-interrupt.json"],
+        # ),
     ],
     license="MIT license",
     long_description=readme + "\n\n" + history,
@@ -57,6 +57,6 @@ setup(
     packages=find_packages(exclude=["ssh_ipykernel_interrupt"]),
     python_requires=">=3.5",
     url="https://github.com/bernhard-42/ssh_ipykernel",
-    version="1.2.0",
+    version="1.2.1",
     zip_safe=False,
 )
