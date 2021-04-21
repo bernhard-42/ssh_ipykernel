@@ -22,6 +22,7 @@ class Status:
     STARTING = 4
     RUNNING = 5
     CONNECT_FAILED = 6
+    RUNNING_EXT = 7
 
     MESSAGES = {
         UNKNOWN: "Unknown",
@@ -168,6 +169,11 @@ class Status:
         """
         self._set_status(Status.RUNNING, pid, sudo)
 
+    def set_running_ext(self, pid, sudo):
+        """Set current status to Status.RUNNING_EXT
+        """
+        self._set_status(Status.RUNNING, pid, sudo)
+    
     def set_down(self, pid=None, sudo=None):
         """Set current status to Status.DOWN
         """
@@ -214,9 +220,9 @@ class Status:
         """Check for Status.RUNNING
 
         Returns:
-            bool -- True if current status is Status.RUNNING
+            bool -- True if current status is Status.RUNNING or Status.RUNNING_EXT
         """
-        return self._get_status() == Status.RUNNING
+        return self._get_status() in [Status.RUNNING, Status.RUNNING_EXT]
 
     def is_down(self):
         """Check for Status.DOWN
