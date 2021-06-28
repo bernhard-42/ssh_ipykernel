@@ -1,6 +1,6 @@
 {
   "name": "interrupt_ssh_ipykernel",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "Add a button to reliably interrupt a IPython kernel",
   "keywords": [
     "jupyter",
@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@jupyterlab/application": "^3.0.0",
-    "@jupyterlab/apputils": "^3.0.7",
+    "@jupyterlab/apputils": "^3.0.9",
     "@jupyterlab/docregistry": "^3.0.9",
     "@jupyterlab/notebook": "^3.0.9"
   },

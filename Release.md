@@ -10,7 +10,7 @@
     ```
 ### 2 Python package
 
-1. Bump version of databrickslabs_jupyterlab
+1. Bump version of ssh_ipykernel
 
     - A new release candidate with rc0
 
