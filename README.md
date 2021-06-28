@@ -64,9 +64,9 @@ jupyter labextension install interrupt-ipykernel-extension
   * from terminal
 
     ```bash
-    python -m ssh_ipykernel.manage --display-name "SSH btest:demo(abc) \
+    python -m ssh_ipykernel.manage --display-name "SSH btest:demo(abc)" \
                                    --host btest \
-                                   --python /opt/anaconda/envs/python36 \
+                                   --python /opt/anaconda/envs/python38 \
                                    --env "VAR1=demo VAR2=abc"
     ```
 
