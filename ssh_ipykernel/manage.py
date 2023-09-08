@@ -123,8 +123,7 @@ if __name__ == "__main__":
     required.add_argument("--python", "-p", required=True, help="remote python_path")
     args = parser.parse_args()
 
-    if args.env:
-        env = " ".join(args.env)
+    env = " ".join(args.env if args.env else [])
 
     add_kernel(
         host=args.host,
