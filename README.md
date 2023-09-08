@@ -26,19 +26,16 @@ jupyter labextension install interrupt-ipykernel-extension
 
   ```text
   $ python -m ssh_ipykernel -h
-  usage: __main__.py [--help] [--timeout TIMEOUT] [--env [ENV [ENV ...]]] [-s]
-                    --file FILE --host HOST --python PYTHON
+  usage: __main__.py [--help] [--timeout TIMEOUT] [--env [ENV ...]] [-s] [--windows] --file FILE --host HOST --python PYTHON
 
   optional arguments:
     --help, -h            show this help message and exit
     --timeout TIMEOUT, -t TIMEOUT
                           timeout for remote commands
-    --env [ENV [ENV ...]], -e [ENV [ENV ...]]
-                          environment variables for the remote kernel in the
-                          form: VAR1=value1 VAR2=value2
+    --env [ENV ...], -e [ENV ...]
+                          environment variables for the remote kernel in the form: VAR1=value1 VAR2=value2
     -s                    sudo required to start kernel on the remote machine
     --windows, -w         remote is windows
-
 
   required arguments:
     --file FILE, -f FILE  jupyter kernel connection file
