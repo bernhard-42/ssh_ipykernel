@@ -88,7 +88,6 @@ class SshKernel:
         logger=None,
         is_windows=False,
     ):
-        print("is windows: " + str(is_windows))
         self.host = host
         self.connection_info = connection_info
         if is_windows:
@@ -159,11 +158,9 @@ class SshKernel:
         self._logger.info("Creating remote connection info")
         script = KERNEL_SCRIPT.format(fname=self.fname, **self.connection_info)
 
-
         cmd = "{python} -c \"{command}\"".format(
             python=self.python_full_path, command=("; ".join(script.strip().split("\n")).replace("\"", "\\\""))
         )
-        print(cmd)
 
         result = self._ssh(cmd)
         self._logger.debug(result)

@@ -16,7 +16,6 @@ def main(host, connection_info, python_path, sudo, timeout, env, is_windows):
         env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
         is_windows {bool} -- Indicates that the target system is Windows.
     """
-    print("II is_windows: " + str(is_windows))
     kernel = SshKernel(host, connection_info, python_path, sudo, timeout, env, is_windows=is_windows)
     try:
         kernel.create_remote_connection_info()
@@ -55,7 +54,6 @@ if __name__ == "__main__":
     required.add_argument("--host", "-H", required=True, help="remote host")
     required.add_argument("--python", "-p", required=True, help="remote python_path")
     args = parser.parse_args()
-    print(args)
 
     try:
         with open(args.file, "r") as fd:
