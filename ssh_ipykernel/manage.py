@@ -21,6 +21,7 @@ def add_kernel(
     timeout=5,
     module="ssh_ipykernel",
     opt_args=None,
+    is_windows=False,
 ):
     """Add a new kernel specification for an SSH Kernel
 
@@ -29,6 +30,7 @@ def add_kernel(
         display_name {str} -- Display name for the new kernel
         local_python_path {[type]} -- Local python path to be used (without bin/python)
         remote_python_path {[type]} -- Remote python path to be used (without bin/python)
+        is_windows {bool} -- Indicates that the remote is Windows.
 
     Keyword Arguments:
         env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
@@ -68,6 +70,9 @@ def add_kernel(
         "display_name": display_name,
         "language": "python",
     }
+    if is_windows:
+        kernel_json["argv"].insert(-2, "--windows")
+
     if env is not None:
         kernel_json["argv"].insert(-2, "--env")
         kernel_json["argv"].insert(-2, env)
@@ -117,6 +122,7 @@ if __name__ == "__main__":
         nargs="*",
         help="environment variables for the remote kernel in the form: VAR1=value1 VAR2=value2",
     )
+    optional.add_argument("--windows", "-w", action="store_true", help="remote is windows")
 
     required = parser.add_argument_group("required arguments")
     required.add_argument("--host", "-H", required=True, help="remote host")
@@ -134,4 +140,5 @@ if __name__ == "__main__":
         sudo=args.sudo,
         env=env,
         timeout=args.timeout,
+        is_windows=args.windows,
     )

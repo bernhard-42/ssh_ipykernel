@@ -10,6 +10,7 @@ The ideas are heavily based on [remote_ikernel](https://bitbucket.org/tdaff/remo
 * Local ports (obtained by jupyter also via `write_connection_file`) will be ssh forwarded to the remote ports
 * The ssh connection and the tunnel command will be retried in case of network or similar errors
 * introduced signal handling with python's `signal` module
+* supports connecting to kernels running on Windows machines
 
 ## Installation
 
@@ -36,6 +37,8 @@ jupyter labextension install interrupt-ipykernel-extension
                           environment variables for the remote kernel in the
                           form: VAR1=value1 VAR2=value2
     -s                    sudo required to start kernel on the remote machine
+    --windows, -w         remote is windows
+
 
   required arguments:
     --file FILE, -f FILE  jupyter kernel connection file
@@ -73,9 +76,7 @@ jupyter labextension install interrupt-ipykernel-extension
     ```bash
     $ python -m ssh_ipykernel.manage --help
 
-    usage: manage.py [--help] [--display-name DISPLAY_NAME] [--sudo]
-                    [--timeout TIMEOUT] [--env [ENV [ENV ...]]] --host HOST
-                    --python PYTHON
+    usage: manage.py [--help] [--display-name DISPLAY_NAME] [--sudo] [--timeout TIMEOUT] [--env [ENV ...]] [--windows] --host HOST --python PYTHON
 
     optional arguments:
       --help, -h            show this help message and exit
@@ -84,9 +85,9 @@ jupyter labextension install interrupt-ipykernel-extension
       --sudo, -s            sudo required to start kernel on the remote machine
       --timeout TIMEOUT, -t TIMEOUT
                             timeout for remote commands
-      --env [ENV [ENV ...]], -e [ENV [ENV ...]]
-                            environment variables for the remote kernel in the
-                            form: VAR1=value1 VAR2=value2
+      --env [ENV ...], -e [ENV ...]
+                            environment variables for the remote kernel in the form: VAR1=value1 VAR2=value2
+      --windows, -w         remote is windows
 
     required arguments:
       --host HOST, -H HOST  remote host

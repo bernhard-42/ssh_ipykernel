@@ -1,6 +1,6 @@
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import platform
 import re
 import signal
@@ -38,7 +38,7 @@ from .status import Status
 KERNEL_SCRIPT = """
 import json
 import os
-fname = os.path.expanduser("{fname}")
+fname = os.path.expanduser(r"{fname}")
 from jupyter_client import write_connection_file
 write_connection_file(fname=fname, ip="{ip}", key=b"{key}", transport="{transport}", signature_scheme="{signature_scheme}", kernel_name="{kernel_name}")
 fd = open(fname, "r")
@@ -86,10 +86,17 @@ class SshKernel:
         verbose=False,
         msg_interval=30,
         logger=None,
+        is_windows=False,
     ):
+        print("is windows: " + str(is_windows))
         self.host = host
         self.connection_info = connection_info
-        self.python_full_path = PurePosixPath(python_path) / "bin/python"
+        if is_windows:
+            remote_tmp_path = PureWindowsPath("%temp%")
+            self.python_full_path = PureWindowsPath(python_path)
+        else:
+            remote_tmp_path = PurePosixPath("/tmp")
+            self.python_full_path = PurePosixPath(python_path) / "bin/python"
         self.sudo = sudo
         self.timeout = timeout
         self.env = env
@@ -104,7 +111,7 @@ class SshKernel:
 
         self.remote_ports = {}
         self.uuid = str(uuid.uuid4())
-        self.fname = "/tmp/.ssh_ipykernel_%s.json" % self.uuid  # POSIX path
+        self.fname = remote_tmp_path / (".ssh_ipykernel_%s.json" % self.uuid)
 
         if logger is None:
             self._logger = setup_logging("SshKernel")
@@ -152,9 +159,11 @@ class SshKernel:
         self._logger.info("Creating remote connection info")
         script = KERNEL_SCRIPT.format(fname=self.fname, **self.connection_info)
 
-        cmd = "{python} -c '{command}'".format(
-            python=self.python_full_path, command="; ".join(script.strip().split("\n"))
+
+        cmd = "{python} -c \"{command}\"".format(
+            python=self.python_full_path, command=("; ".join(script.strip().split("\n")).replace("\"", "\\\""))
         )
+        print(cmd)
 
         result = self._ssh(cmd)
         self._logger.debug(result)
