@@ -4,7 +4,7 @@ import sys
 from .kernel import SshKernel
 
 
-def main(host, connection_info, python_path, sudo, timeout, env):
+def main(host, connection_info, python_path, sudo, timeout, env, is_windows):
     """Main function to be called as module to create SshKernel
 
     Arguments:
@@ -14,8 +14,9 @@ def main(host, connection_info, python_path, sudo, timeout, env):
         sudo {bool} -- Start ipykernel as root if necessary (default: {False})
         timeout {int} -- SSH connection timeout (default: {5})
         env {str} -- Environment variables passd to the ipykernel "VAR1=VAL1 VAR2=VAL2" (default: {""})
+        is_windows {bool} -- Indicates that the target system is Windows.
     """
-    kernel = SshKernel(host, connection_info, python_path, sudo, timeout, env)
+    kernel = SshKernel(host, connection_info, python_path, sudo, timeout, env, is_windows=is_windows)
     try:
         kernel.create_remote_connection_info()
         kernel.start_kernel_and_tunnels()
@@ -46,6 +47,7 @@ if __name__ == "__main__":
     optional.add_argument(
         "-s", action="store_true", help="sudo required to start kernel on the remote machine"
     )
+    optional.add_argument("--windows", "-w", action="store_true", help="remote is windows")
 
     required = parser.add_argument_group("required arguments")
     required.add_argument("--file", "-f", required=True, help="jupyter kernel connection file")
@@ -60,4 +62,4 @@ if __name__ == "__main__":
         print(ex)
         sys.exit(1)
 
-    sys.exit(main(args.host, connection_info, args.python, args.s, args.timeout, args.env))
+    sys.exit(main(args.host, connection_info, args.python, args.s, args.timeout, args.env, is_windows=args.windows))
